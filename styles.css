@@ -1,0 +1,132 @@
+/* Reset Básico */
+body, html {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    height: 100%;
+    overflow: hidden; /* Evita barras de desplazamiento innecesarias */
+}
+
+/* Contenedor Principal (Flexbox para layout) */
+#container {
+    display: flex;
+    height: 100vh;
+}
+
+/* Estilo del Mapa */
+#map {
+    flex-grow: 1; /* Ocupa la mayor parte del espacio */
+    height: 100%;
+    z-index: 1; /* asegura que esté por debajo de overlays/leyenda */
+}
+
+/* Panel Lateral (Sidebar) */
+#sidebar {
+    width: 350px; /* Ancho fijo para el panel */
+    background-color: #ffffff;
+    padding: 20px;
+    box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+    overflow-y: auto; /* Permite scroll si el contenido es largo */
+}
+
+#sidebar h2 {
+    color: #004d40; /* Color primario tipo “verde tierra” */
+    margin-top: 0;
+    font-size: 1.3em;
+    border-bottom: 2px solid #e0e0e0;
+    padding-bottom: 5px;
+}
+
+#sidebar h3 {
+    margin-top: 20px;
+    font-size: 1.1em;
+    color: #333;
+}
+
+/* Estilos de las Tarjetas KPI */
+#kpi-cards {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    gap: 10px;
+}
+
+.kpi-card {
+    background-color: #e0f2f1;
+    border-left: 5px solid #004d40;
+    padding: 10px;
+    flex: 1;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.kpi-card h4 {
+    margin: 0;
+    color: #004d40;
+    font-size: 0.85em;
+    font-weight: normal;
+}
+
+.kpi-card p {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: #333;
+    margin: 5px 0 0 0;
+}
+
+/* Estilo de los Gráficos */
+.chart-container {
+    margin-top: 20px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #fafafa;
+}
+
+/* Texto de métricas seleccionadas */
+#selected-metrics {
+    margin-top: 10px;
+    font-size: 0.95em;
+    line-height: 1.5;
+}
+
+#selected-metrics p {
+    margin: 4px 0;
+}
+
+/* Estilo de Leyenda para Leaflet (se añade dinámicamente) */
+.legend {
+    line-height: 18px;
+    color: #555;
+    background: white;
+    padding: 8px 10px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    border-radius: 6px;
+    font-size: 0.85em;
+}
+.legend h4 {
+    margin: 0 0 5px 0;
+    font-size: 0.9em;
+    color: #333;
+}
+.legend i {
+    width: 18px;
+    height: 18px;
+    float: left;
+    margin-right: 8px;
+    opacity: 0.7;
+    border-radius: 3px;
+}
+
+/* Scroll elegante en sidebar */
+#sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+#sidebar::-webkit-scrollbar-thumb {
+    background: #bbb;
+    border-radius: 3px;
+}
+#sidebar::-webkit-scrollbar-thumb:hover {
+    background: #999;
+}

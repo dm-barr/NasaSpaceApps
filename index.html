@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cajamarca Sostenible: Observatorio de Riesgos Urbanos</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <div id="container">
+
+        <div id="map"></div>
+
+        <div id="sidebar">
+            <h2>📊 Prioridades de Intervención en Cajamarca</h2>
+
+            <div id="kpi-cards">
+                <div class="kpi-card">
+                    <h4>Área de Alto Riesgo:</h4>
+                    <p id="kpi-alto">--</p>
+                </div>
+                <div class="kpi-card">
+                    <h4>Vegetación Crítica (NDVI bajo):</h4>
+                    <p id="kpi-ndvi">--</p>
+                </div>
+            </div>
+
+            <div id="wri-info" class="chart-container">
+                <p>Cargando información complementaria del WRI...</p>
+            </div>
+
+            <hr>
+
+            <h3>Detalle del Área Seleccionada</h3>
+            <div id="area-info">
+                <p>Haz clic en el mapa para ver los datos de LST, NDVI y Densidad de esa zona específica.</p>
+                <div id="selected-metrics"></div>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="riskChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
