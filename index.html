@@ -6,17 +6,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cajamarca Sostenible: Observatorio de Riesgos Urbanos</title>
 
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 
+    <!-- Hoja de estilos -->
     <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
 
     <div id="container">
-
+        <!-- MAPA -->
         <div id="map"></div>
 
+        <!-- PANEL LATERAL -->
         <div id="sidebar">
             <h2>📊 Prioridades de Intervención en Cajamarca</h2>
 
@@ -31,8 +34,69 @@
                 </div>
             </div>
 
+            <!-- Módulo IA -->
+            <div id="ai-module" class="chart-container">
+                <h4>🤖 Predicción de Riesgo (IA)</h4>
+                <label>Modo:
+                    <select id="ai-mode">
+                        <option value="light">Ligero (regla ponderada)</option>
+                        <option value="tfjs">Entrenable (TensorFlow.js)</option>
+                    </select>
+                </label>
+                <div>
+                    <label>NDVI: <input id="ai-ndvi" type="range" min="0" max="1" step="0.01" value="0.5"></label>
+                    <label>LST (°C): <input id="ai-lst" type="range" min="15" max="45" step="0.1" value="26"></label>
+                    <label>Densidad (hab/km²): <input id="ai-den" type="range" min="0" max="10000" step="1"
+                            value="500"></label>
+                </div>
+                <button id="ai-predict">Calcular Predicción</button>
+                <div id="ai-output"></div>
+                <hr>
+                <div id="ai-train-area" style="display:none;">
+                    <p>Entrenamiento local (demo) — genera un modelo simple con datos sintéticos.</p>
+                    <button id="ai-train">Entrenar modelo (demo)</button>
+                    <div id="ai-train-output"></div>
+                </div>
+            </div>
+
+            <!-- Simulación Climática -->
+            <div id="climate-module" class="chart-container">
+                <h4>🌡️ Simulación de Escenarios Climáticos</h4>
+                <label>Escenario:
+                    <select id="scenario-select">
+                        <option value="rcp26">RCP2.6 (optimista)</option>
+                        <option value="rcp45">RCP4.5 (moderado)</option>
+                        <option value="rcp85">RCP8.5 (pesimista)</option>
+                    </select>
+                </label>
+                <label>Año objetivo:
+                    <input id="scenario-year" type="number" min="2025" max="2100" value="2050">
+                </label>
+                <button id="run-scenario">Ejecutar Proyección</button>
+                <div id="scenario-output"></div>
+            </div>
+
+            <!-- Capa Satelital / FIRMS -->
+            <div id="sat-module" class="chart-container">
+                <h4>🛰️ Capa Satelital en Tiempo Real</h4>
+                <p>FIRMS (NASA): detecciones MODIS/VIIRS en el área visible.</p>
+                <label>Tu MAP_KEY FIRMS: <input id="firms-key" type="text" placeholder="MAP_KEY (obligatorio)"></label>
+                <button id="toggle-firms">Cargar detecciones FIRMS (vista actual)</button>
+                <button id="add-wri-geotiff">Mostrar capa emisiones (WRI - GeoTIFF vía WMS)</button>
+                <div id="sat-output"></div>
+            </div>
+
+
+
             <div id="wri-info" class="chart-container">
                 <p>Cargando información complementaria del WRI...</p>
+            </div>
+
+            <!-- NUEVA SECCIÓN DINÁMICA DE LA API -->
+            <div id="wri-datasets" class="chart-container">
+                <h4>🌐 Datasets disponibles (WRI)</h4>
+                <p id="dataset-status">Cargando lista...</p>
+                <ul id="dataset-list"></ul>
             </div>
 
             <hr>
@@ -49,9 +113,11 @@
         </div>
     </div>
 
+    <!-- Librerías externas -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <!-- Script principal -->
     <script src="script.js"></script>
 </body>
 
