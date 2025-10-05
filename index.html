@@ -15,13 +15,9 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.118.0/Build/Cesium/Widgets/widgets.css">
 
     <style>
-    /* ----------------------------------------------------------- */
-    /* ---------------------- 🎨 ESTILOS CSS 🎨 ---------------------- */
-    /* ----------------------------------------------------------- */
     :root {
       --sidebar-width: 360px;
       --accent: #00695c;
-      /* Verde esmeralda */
       --accent-dark: #004d40;
       --muted: #6b6b6b;
       --bg: #f7f9f8;
@@ -46,7 +42,6 @@
       color: inherit
     }
 
-    /* ------------- Layout principal --------------- */
     #app {
       display: flex;
       height: 100vh;
@@ -54,7 +49,6 @@
       overflow: hidden;
     }
 
-    /* Contenedor principal del mapa */
     #map-container {
       flex: 1;
       position: relative;
@@ -62,7 +56,6 @@
       min-width: 0;
     }
 
-    /* Contenedores de mapa */
     #leaflet-map,
     #cesium-globe {
       position: absolute;
@@ -71,14 +64,11 @@
       transition: opacity 0.5s ease;
     }
 
-    /* Asegura que Cesium tenga el fondo negro por defecto */
     #cesium-globe {
       background: #000;
       display: none;
-      /* Oculto por defecto */
     }
 
-    /* Sidebar */
     #sidebar {
       width: var(--sidebar-width);
       background: var(--card-bg);
@@ -89,13 +79,11 @@
       z-index: 900;
     }
 
-    /* Plegado de sidebar en móvil */
     #sidebar.collapsed {
       transform: translateX(100%);
       box-shadow: none;
     }
 
-    /* Header dentro del sidebar */
     #sidebar header {
       display: flex;
       align-items: center;
@@ -114,7 +102,6 @@
       gap: 8px;
     }
 
-    /* Estilo para botones de control */
     #mapmode-btn,
     #menu-toggle,
     #close-sidebar {
@@ -140,7 +127,6 @@
       display: none;
     }
 
-    /* Controles flotantes (Botón 3D y Menú móvil) */
     #map-controls {
       position: absolute;
       top: 12px;
@@ -159,7 +145,6 @@
       margin-top: 0;
     }
 
-    /* KPI cards - Más vibrantes */
     #kpi-cards {
       display: flex;
       gap: 12px;
@@ -197,7 +182,6 @@
       transition: color 0.3s ease;
     }
 
-    /* CSS para el mensaje de modo 3D */
     .mode-3d-message {
       background: #fef0f0;
       color: #d32f2f;
@@ -207,7 +191,6 @@
       border-radius: 4px;
     }
 
-    /* Estilos responsive */
     @media (max-width: 900px) {
       #sidebar {
         position: absolute;
@@ -253,7 +236,6 @@
         </div>
       </header>
 
-      <!-- KPI CARDS -->
       <div id="kpi-cards">
         <div class="kpi-card">
           <h4>High-Risk Area</h4>
@@ -268,13 +250,11 @@
         </div>
       </div>
 
-      <!-- 3D MODE ALERT -->
       <div id="mode-alert" class="mode-3d-message" style="display: none;">
         🚨 <strong>3D MODE ACTIVE:</strong> Data interactions (clicks, layers)
         are handled in Cesium. The sidebar is in visualization mode.
       </div>
 
-      <!-- AI MODULE -->
       <section class="chart-container">
         <div class="module-header">
           <h4>🤖 Risk Prediction (AI)</h4>
@@ -316,7 +296,6 @@
         </div>
       </section>
 
-      <!-- DATASETS -->
       <section class="chart-container">
         <h4>📚 Available Datasets (WRI)</h4>
         <div id="wri-info">Data ready for geospatial analysis.</div>
@@ -331,7 +310,6 @@
 
       <hr style="margin:16px 0;border:none;border-top:1px solid #eee">
 
-      <!-- SELECTED AREA DETAILS -->
       <section id="area-info">
         <h3>Selected Area Details (Click on the Map)</h3>
         <p id="click-instruction" style="color:var(--muted)">
@@ -341,7 +319,6 @@
         <div id="selected-metrics"></div>
       </section>
 
-      <!-- CHART -->
       <section class="chart-container chart-wrap">
         <canvas id="riskChart"></canvas>
       </section>
@@ -359,11 +336,6 @@
    
    
   <script>
-    /* ----------------------------------------------------------- */
-    /* -------------------- 💻 LÓGICA JAVASCRIPT 💻 ------------------- */
-    /* ----------------------------------------------------------- */
-
-    // Variables de control
     const sidebar = document.getElementById('sidebar');
     const menuToggle = document.getElementById('menu-toggle');
     const mapControls = document.getElementById('map-controls');
@@ -375,16 +347,13 @@
     const clickInstruction = document.getElementById('click-instruction');
     const ndviBar = document.getElementById('ndvi-bar');
 
-    // Estado global
     let is3DMode = false;
-    let mapInstance = null; // Leaflet instance
-    let cesiumViewer = null; // Cesium Viewer instance
+    let mapInstance = null;
+    let cesiumViewer = null;
     let clickMarker = null;
 
-    // Coordenadas de Cajamarca
-    const CAJAMARCA_COORDS = [-7.1667, -78.5]; // Lat, Lng
+    const CAJAMARCA_COORDS = [-7.1667, -78.5];
 
-    /* ----------------- UI: sidebar toggle (responsive) ----------------- */
     function updateResponsiveUI() {
       const w = window.innerWidth;
       if (w <= 900) {
@@ -406,73 +375,59 @@
     closeSidebarBtn && closeSidebarBtn.addEventListener('click', () => sidebar.classList.remove('open'));
 
 
-    /* ----------------- Map initialization: Leaflet ONLY (2D) ----------------- */
     function initLeafletMap() {
       if (mapInstance) mapInstance.remove();
 
       mapInstance = L.map(leafletMapDiv, { preferCanvas: true }).setView(CAJAMARCA_COORDS, 12);
 
-      // Capa base gratuita de OpenStreetMap (OSM)
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       }).addTo(mapInstance);
 
-      // Click handler para Leaflet
       mapInstance.on('click', function (e) {
         if (!is3DMode) handleMapClick({ lng: e.latlng.lng, lat: e.latlng.lat });
       });
     }
 
-    // Llamada inicial
     initLeafletMap();
 
-    /* ----------------- Map initialization: CesiumJS (3D) ----------------- */
     function initCesiumViewer() {
-      // 1. Verificar si ya se inicializó
       if (cesiumViewer) return;
-
-      // 2. Configurar Cesium token
-      // Cesium requiere un token para algunos servicios (como las imágenes 3D por defecto), aunque el motor es gratuito.
-      // Usamos el token de demostración (funciona, pero se recomienda obtener uno propio en https://cesium.com/ion/tokens).
       Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyYTliOTViOC1jYmJmLTQzOWItODg0Ny1hNzg0YzJjYTljY2YiLCJpZCI6MTkzNTQ0LCJpYXQiOjE3MDcwNTEzNDl9.X1-wW1_g9R6yN1_X_e7D2Y3pQe2M5J6eW3d0P1v-f78';
 
-      // 3. Inicializar el visor
       cesiumViewer = new Cesium.Viewer(cesiumGlobeDiv, {
-        animation: false, // Desactivar widget de animación
-        baseLayerPicker: true, // Permitir cambio de capa base (incluye 3D)
-        fullscreenButton: false, // Desactivar botón de pantalla completa
-        geocoder: false, // Desactivar geocodificador
-        homeButton: false, // Desactivar botón de inicio
-        sceneModePicker: false, // Desactivar selector de modo de escena (2D, 3D)
-        timeline: false, // Desactivar línea de tiempo
-        navigationHelpButton: false, // Desactivar botón de ayuda
-        infoBox: false, // Desactivar cuadro de información
-        selectionIndicator: false // Desactivar indicador de selección
+        animation: false,
+        baseLayerPicker: true,
+        fullscreenButton: false,
+        geocoder: false,
+        homeButton: false,
+        sceneModePicker: false,
+        timeline: false,
+        navigationHelpButton: false,
+        infoBox: false,
+        selectionIndicator: false
       });
 
-      // 4. Volar a Cajamarca con inclinación para ver 3D
       cesiumViewer.camera.flyTo({
-        destination: Cesium.Cartesian3.fromDegrees(CAJAMARCA_COORDS[1], CAJAMARCA_COORDS[0], 20000), // Lng, Lat, Altura (20km)
+        destination: Cesium.Cartesian3.fromDegrees(CAJAMARCA_COORDS[1], CAJAMARCA_COORDS[0], 20000),
         orientation: {
-          heading: Cesium.Math.toRadians(0.0), // Orientación Norte
-          pitch: Cesium.Math.toRadians(-35.0), // Ángulo de inclinación
+          heading: Cesium.Math.toRadians(0.0),
+          pitch: Cesium.Math.toRadians(-35.0),
           roll: 0.0
         },
-        duration: 1.5 // Duración del vuelo
+        duration: 1.5
       });
 
       console.log('CesiumJS Viewer inicializado.');
     }
 
-    /* ----------------- Función principal de toggle de modo de mapa ----------------- */
     mapmodeBtn.addEventListener('click', toggleMapMode);
 
     function toggleMapMode() {
       is3DMode = !is3DMode;
 
       if (is3DMode) {
-        // Modo 3D (Cesium)
         initCesiumViewer();
         leafletMapDiv.style.display = 'none';
         cesiumGlobeDiv.style.display = 'block';
@@ -482,10 +437,9 @@
         clickInstruction.textContent = 'Interacciones de datos deshabilitadas en el modo 3D.';
 
       } else {
-        // Modo 2D (Leaflet)
         leafletMapDiv.style.display = 'block';
         cesiumGlobeDiv.style.display = 'none';
-        mapInstance.invalidateSize(); // Asegura que Leaflet se redimensione correctamente
+        mapInstance.invalidateSize();
         mapmodeBtn.textContent = '🌍 Cambiar a 3D';
         mapmodeBtn.title = 'Cambiar a vista 3D (CesiumJS)';
         modeAlert.style.display = 'none';
@@ -493,16 +447,12 @@
       }
     }
 
-    /* -------------- Manejo de clicks en el mapa (simulación de métricas) -------------- */
     function handleMapClick(coords) {
-      // Esta función solo se ejecuta si NO estamos en 3D (ver listener en initLeafletMap)
 
-      // 1. Simulación de datos
-      const ndvi = (Math.random() * 0.7 + 0.2).toFixed(2); // Rango 0.2 a 0.9
-      const lst = (18 + Math.random() * 18).toFixed(1); // Rango 18 a 36
+      const ndvi = (Math.random() * 0.7 + 0.2).toFixed(2);
+      const lst = (18 + Math.random() * 18).toFixed(1);
       const dens = Math.round(Math.random() * 6000);
 
-      // 2. Animación del marcador de click (Leaflet)
       if (clickMarker) mapInstance.removeLayer(clickMarker);
       clickMarker = L.circleMarker([coords.lat, coords.lng], {
         radius: 8,
@@ -514,7 +464,6 @@
       }).addTo(mapInstance).bindPopup(`Datos: NDVI ${ndvi}, LST ${lst}°C`).openPopup();
       mapInstance.flyTo([coords.lat, coords.lng], 12, { animate: true, duration: 1 });
 
-      // 3. Actualizar panel lateral
       const html = `
         <p><strong>📍 Coordenadas:</strong> ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}</p>
         <p><strong>🌿 NDVI (Salud):</strong> <span style="color:${parseFloat(ndvi) > 0.4 ? 'green' : 'orange'}; font-weight:700;">${ndvi}</span></p>
@@ -523,28 +472,20 @@
       `;
       document.getElementById('selected-metrics').innerHTML = html;
 
-      // 4. Actualizar KPIs, animar riesgo e indicador visual NDVI
       const kpiAlto = document.getElementById('kpi-alto');
       const isHighRisk = (parseFloat(ndvi) < 0.3 || parseFloat(lst) > 32);
       kpiAlto.textContent = isHighRisk ? '¡ALTO! ⚠️' : 'Bajo/Medio ✅';
       kpiAlto.style.color = isHighRisk ? '#ff4500' : 'var(--accent-dark)';
       kpiAlto.classList.toggle('pulsing-kpi', isHighRisk);
       document.getElementById('kpi-ndvi').textContent = ndvi;
-
       const ndviPercent = parseFloat(ndvi) * 100;
       ndviBar.style.position = 'relative';
       ndviBar.style.cursor = 'pointer';
       ndviBar.innerHTML = `<div style="position: absolute; top: -7px; left: ${ndviPercent}%; transform: translateX(-50%); width: 14px; height: 14px; border-radius: 50%; background: white; border: 2px solid var(--accent-dark); box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: left 0.5s ease-out;"></div>`;
-
-
-      // 5. Actualizar gráfico de riesgo
       updateRiskChart(parseFloat(ndvi), parseFloat(lst), dens);
-
-      // 6. Cerrar sidebar si es móvil (mejora UX)
       if (window.innerWidth <= 900) sidebar.classList.remove('open');
     }
 
-    /* ----------------- Sincronización de Range Sliders con valores ----------------- */
     document.querySelectorAll('input[type="range"]').forEach(input => {
       const displaySpan = input.parentNode.querySelector('.value-display');
       if (displaySpan) {
@@ -557,14 +498,12 @@
       }
     });
 
-    /* ----------------- IA simple (regla ponderada) ----------------- */
     document.getElementById('ai-predict').addEventListener('click', () => {
       const ndvi = parseFloat(document.getElementById('ai-ndvi').value);
       const lst = parseFloat(document.getElementById('ai-lst').value);
       const dens = parseFloat(document.getElementById('ai-den').value);
       const out = document.getElementById('ai-output');
 
-      // Regla ponderada demo (0-1)
       const risk = Math.min(1, Math.max(0,
         0.5 * (1 - ndvi) + 0.35 * ((lst - 15) / 30) + 0.15 * (dens / 10000)
       ));
@@ -575,10 +514,6 @@
       out.innerHTML = `<div>Estimación IA: <strong>Riesgo ${riskPct}%</strong> (${riskPct > 60 ? '¡Alta prioridad!' : 'Prioridad baja/media'}).</div>`;
     });
 
-    // Las funciones de Simulación Climática y FIRMS/WRI se han eliminado para simplificar el código en la respuesta final,
-    // ya que el foco es la vista 3D, pero se pueden reintegrar.
-
-    /* ----------------- Gráfico de riesgo (Chart.js) ----------------- */
     const ctx = document.getElementById('riskChart').getContext('2d');
     let riskChart = new Chart(ctx, {
       type: 'bar',
@@ -586,7 +521,7 @@
         labels: ['NDVI', 'LST (°C)', 'Densidad (/1000)'],
         datasets: [{
           label: 'Valor normalizado',
-          data: [0.5 * 35, 26, 0.5 * 5], // Escala inicial
+          data: [0.5 * 35, 26, 0.5 * 5],
           backgroundColor: [
             'rgba(75, 192, 192, 0.7)',
             'rgba(255, 99, 132, 0.7)',
@@ -622,18 +557,12 @@
       riskChart.update();
     }
   </script>
-  <!-- ------------------ INICIO: Simulaciones y capas adicionales ------------------ -->
   <script>
     (function () {
-      // --- Seguridad: asegurar que mapa Leaflet exista ---
       if (typeof mapInstance === 'undefined' || !mapInstance) {
         console.warn('Simulación: mapInstance no detectado todavía. Esta capa se añadirá cuando el mapa esté listo.');
-        // Esperar a que window.mapInstance exista o que se dispare evento custom (reintentamos más abajo)
       }
 
-      /**************************************************************************
-       * Utilidades pequeñas
-       **************************************************************************/
       function safeGetMap() {
         if (typeof mapInstance !== 'undefined' && mapInstance) return mapInstance;
         return null;
@@ -650,7 +579,6 @@
         return div.firstChild;
       }
 
-      // Color ramp utility para choropleth
       function getColorRamped(value, breaks, colors) {
         for (let i = 0; i < breaks.length; i++) {
           if (value <= breaks[i]) return colors[i];
@@ -658,10 +586,6 @@
         return colors[colors.length - 1];
       }
 
-      /**************************************************************************
-       * Datos simulados (GeoJSON y arrays). Reemplázalos por tus datos reales.
-       **************************************************************************/
-      // Nota: coordenadas demo centradas en Cajamarca (~lat -7.17, lon -78.5).
       const simulatedAreas = {
         "type": "FeatureCollection",
         "features": [
@@ -1057,72 +981,52 @@
         ]
       };
 
-      // Puntos de contaminación simulada (aire / agua)
-const puntosContaminacionSim = [
-  // ======== ZONA URBANA DE CAJAMARCA ========
-  { nombre: "Zona Industrial Norte", tipo: "Aire", valor: 145, coords: [-78.521, -7.152] },
-  { nombre: "Vertido Río San Pedro", tipo: "Agua", valor: 88, coords: [-78.519, -7.154] },
-  { nombre: "Quema Residual - Sector B", tipo: "Aire", valor: 112, coords: [-78.505, -7.145] },
-  { nombre: "Av. Hoyos Rubio - Tráfico", tipo: "Aire", valor: 98, coords: [-78.501, -7.163] },
-  { nombre: "Mercado Central de Cajamarca", tipo: "Aire", valor: 82, coords: [-78.519, -7.162] },
-  { nombre: "Descarga Río Mashcón", tipo: "Agua", valor: 75, coords: [-78.530, -7.175] },
-  { nombre: "Depósito de Residuos Atahualpa", tipo: "Suelo", valor: 132, coords: [-78.535, -7.182] },
-  { nombre: "Cantera Santa Apolonia", tipo: "Suelo", valor: 95, coords: [-78.520, -7.169] },
-  { nombre: "Parque Industrial Oeste", tipo: "Aire", valor: 150, coords: [-78.558, -7.150] },
-  { nombre: "Terminal Terrestre Cajamarca", tipo: "Aire", valor: 105, coords: [-78.530, -7.166] },
-  { nombre: "Quebrada San Lucas", tipo: "Agua", valor: 68, coords: [-78.512, -7.180] },
+      const puntosContaminacionSim = [
+        { nombre: "Zona Industrial Norte", tipo: "Aire", valor: 145, coords: [-78.521, -7.152] },
+        { nombre: "Vertido Río San Pedro", tipo: "Agua", valor: 88, coords: [-78.519, -7.154] },
+        { nombre: "Quema Residual - Sector B", tipo: "Aire", valor: 112, coords: [-78.505, -7.145] },
+        { nombre: "Av. Hoyos Rubio - Tráfico", tipo: "Aire", valor: 98, coords: [-78.501, -7.163] },
+        { nombre: "Mercado Central de Cajamarca", tipo: "Aire", valor: 82, coords: [-78.519, -7.162] },
+        { nombre: "Descarga Río Mashcón", tipo: "Agua", valor: 75, coords: [-78.530, -7.175] },
+        { nombre: "Depósito de Residuos Atahualpa", tipo: "Suelo", valor: 132, coords: [-78.535, -7.182] },
+        { nombre: "Cantera Santa Apolonia", tipo: "Suelo", valor: 95, coords: [-78.520, -7.169] },
+        { nombre: "Parque Industrial Oeste", tipo: "Aire", valor: 150, coords: [-78.558, -7.150] },
+        { nombre: "Terminal Terrestre Cajamarca", tipo: "Aire", valor: 105, coords: [-78.530, -7.166] },
+        { nombre: "Quebrada San Lucas", tipo: "Agua", valor: 68, coords: [-78.512, -7.180] },
+        { nombre: "Baños del Inca - Aguas Termales", tipo: "Agua", valor: 50, coords: [-78.470, -7.160] },
+        { nombre: "Talleres Mecánicos Baños del Inca", tipo: "Aire", valor: 108, coords: [-78.460, -7.165] },
+        { nombre: "Zona Agrícola Llacanora", tipo: "Aire", valor: 120, coords: [-78.458, -7.188] },
+        { nombre: "Río Llacanora", tipo: "Agua", valor: 60, coords: [-78.455, -7.190] },
+        { nombre: "Relleno Sanitario La Colpa", tipo: "Suelo", valor: 165, coords: [-78.545, -7.200] },
+        { nombre: "Lecherías Porcón Bajo", tipo: "Agua", valor: 68, coords: [-78.562, -7.122] },
+        { nombre: "Zoológico Granja Porcón", tipo: "Agua", valor: 45, coords: [-78.580, -7.112] },
+        { nombre: "Bosque de Porcón Alto", tipo: "Aire", valor: 40, coords: [-78.600, -7.090] },
+        { nombre: "Camino a Porcón - Polvo Vehicular", tipo: "Aire", valor: 75, coords: [-78.585, -7.100] },
+        { nombre: "Namora - Centro", tipo: "Aire", valor: 72, coords: [-78.395, -7.170] },
+        { nombre: "Talleres Informales Namora", tipo: "Aire", valor: 128, coords: [-78.390, -7.165] },
+        { nombre: "Laguna Namora", tipo: "Agua", valor: 40, coords: [-78.385, -7.180] },
+        { nombre: "Vertedero Rural - Namora Sur", tipo: "Suelo", valor: 145, coords: [-78.405, -7.195] },
+        { nombre: "Mina Simulada La Encañada", tipo: "Aire", valor: 160, coords: [-78.390, -7.170] },
+        { nombre: "Descarga Industrial - Encañada", tipo: "Agua", valor: 92, coords: [-78.395, -7.165] },
+        { nombre: "Residuos Mineros - Ladera Norte", tipo: "Suelo", valor: 180, coords: [-78.382, -7.160] },
+        { nombre: "Río Grande - Encañada", tipo: "Agua", valor: 70, coords: [-78.400, -7.155] },
+        { nombre: "Chetilla - Zona de Cultivos", tipo: "Aire", valor: 65, coords: [-78.590, -7.190] },
+        { nombre: "Río Chonta", tipo: "Agua", valor: 80, coords: [-78.575, -7.180] },
+        { nombre: "Residuos Orgánicos Chetilla", tipo: "Suelo", valor: 120, coords: [-78.580, -7.185] },
+        { nombre: "Jesús - Centro Urbano", tipo: "Aire", valor: 70, coords: [-78.675, -7.180] },
+        { nombre: "Laguna San Nicolás (Magdalena)", tipo: "Agua", valor: 35, coords: [-78.530, -7.230] },
+        { nombre: "Río Jequetepeque Alto", tipo: "Agua", valor: 58, coords: [-78.690, -7.190] },
+        { nombre: "Camal Municipal Jesús", tipo: "Suelo", valor: 100, coords: [-78.682, -7.185] },
+        { nombre: "Matara - Producción Agrícola", tipo: "Agua", valor: 62, coords: [-78.495, -7.235] },
+        { nombre: "Vertedero Informal Sur", tipo: "Suelo", valor: 145, coords: [-78.470, -7.190] },
+        { nombre: "Asunción - Quema de Cultivos", tipo: "Aire", valor: 110, coords: [-78.530, -7.255] },
+        { nombre: "Carretera Cajamarca–Asunción", tipo: "Aire", valor: 85, coords: [-78.495, -7.220] },
+        { nombre: "Reserva Ecológica El Cumbe", tipo: "Aire", valor: 38, coords: [-78.515, -7.210] },
+        { nombre: "Bosque de Collpa Alta", tipo: "Aire", valor: 42, coords: [-78.555, -7.240] },
+        { nombre: "Laguna Cruz Blanca", tipo: "Agua", valor: 30, coords: [-78.510, -7.250] },
+        { nombre: "Parque Natural Cumbe Mayo", tipo: "Aire", valor: 33, coords: [-78.600, -7.220] }
+      ];
 
-  // ======== BAÑOS DEL INCA Y ALREDEDORES ========
-  { nombre: "Baños del Inca - Aguas Termales", tipo: "Agua", valor: 50, coords: [-78.470, -7.160] },
-  { nombre: "Talleres Mecánicos Baños del Inca", tipo: "Aire", valor: 108, coords: [-78.460, -7.165] },
-  { nombre: "Zona Agrícola Llacanora", tipo: "Aire", valor: 120, coords: [-78.458, -7.188] },
-  { nombre: "Río Llacanora", tipo: "Agua", valor: 60, coords: [-78.455, -7.190] },
-  { nombre: "Relleno Sanitario La Colpa", tipo: "Suelo", valor: 165, coords: [-78.545, -7.200] },
-
-  // ======== PORCÓN Y ZONAS FORESTALES ========
-  { nombre: "Lecherías Porcón Bajo", tipo: "Agua", valor: 68, coords: [-78.562, -7.122] },
-  { nombre: "Zoológico Granja Porcón", tipo: "Agua", valor: 45, coords: [-78.580, -7.112] },
-  { nombre: "Bosque de Porcón Alto", tipo: "Aire", valor: 40, coords: [-78.600, -7.090] },
-  { nombre: "Camino a Porcón - Polvo Vehicular", tipo: "Aire", valor: 75, coords: [-78.585, -7.100] },
-
-  // ======== NAMORA Y ZONAS RURALES ESTE ========
-  { nombre: "Namora - Centro", tipo: "Aire", valor: 72, coords: [-78.395, -7.170] },
-  { nombre: "Talleres Informales Namora", tipo: "Aire", valor: 128, coords: [-78.390, -7.165] },
-  { nombre: "Laguna Namora", tipo: "Agua", valor: 40, coords: [-78.385, -7.180] },
-  { nombre: "Vertedero Rural - Namora Sur", tipo: "Suelo", valor: 145, coords: [-78.405, -7.195] },
-
-  // ======== LA ENCAÑADA Y MINERÍA ========
-  { nombre: "Mina Simulada La Encañada", tipo: "Aire", valor: 160, coords: [-78.390, -7.170] },
-  { nombre: "Descarga Industrial - Encañada", tipo: "Agua", valor: 92, coords: [-78.395, -7.165] },
-  { nombre: "Residuos Mineros - Ladera Norte", tipo: "Suelo", valor: 180, coords: [-78.382, -7.160] },
-  { nombre: "Río Grande - Encañada", tipo: "Agua", valor: 70, coords: [-78.400, -7.155] },
-
-  // ======== CHETILLA Y OESTE ========
-  { nombre: "Chetilla - Zona de Cultivos", tipo: "Aire", valor: 65, coords: [-78.590, -7.190] },
-  { nombre: "Río Chonta", tipo: "Agua", valor: 80, coords: [-78.575, -7.180] },
-  { nombre: "Residuos Orgánicos Chetilla", tipo: "Suelo", valor: 120, coords: [-78.580, -7.185] },
-
-  // ======== JESÚS Y MAGDALENA ========
-  { nombre: "Jesús - Centro Urbano", tipo: "Aire", valor: 70, coords: [-78.675, -7.180] },
-  { nombre: "Laguna San Nicolás (Magdalena)", tipo: "Agua", valor: 35, coords: [-78.530, -7.230] },
-  { nombre: "Río Jequetepeque Alto", tipo: "Agua", valor: 58, coords: [-78.690, -7.190] },
-  { nombre: "Camal Municipal Jesús", tipo: "Suelo", valor: 100, coords: [-78.682, -7.185] },
-
-  // ======== MATARA, ASUNCIÓN Y SUR ========
-  { nombre: "Matara - Producción Agrícola", tipo: "Agua", valor: 62, coords: [-78.495, -7.235] },
-  { nombre: "Vertedero Informal Sur", tipo: "Suelo", valor: 145, coords: [-78.470, -7.190] },
-  { nombre: "Asunción - Quema de Cultivos", tipo: "Aire", valor: 110, coords: [-78.530, -7.255] },
-  { nombre: "Carretera Cajamarca–Asunción", tipo: "Aire", valor: 85, coords: [-78.495, -7.220] },
-
-  // ======== ZONAS LIMPIAS Y DE RESERVA ========
-  { nombre: "Reserva Ecológica El Cumbe", tipo: "Aire", valor: 38, coords: [-78.515, -7.210] },
-  { nombre: "Bosque de Collpa Alta", tipo: "Aire", valor: 42, coords: [-78.555, -7.240] },
-  { nombre: "Laguna Cruz Blanca", tipo: "Agua", valor: 30, coords: [-78.510, -7.250] },
-  { nombre: "Parque Natural Cumbe Mayo", tipo: "Aire", valor: 33, coords: [-78.600, -7.220] }
-];
-
-
-      // Propuestas de centros de salud
       const propuestasSalud = [
         { nombre: "Centro Propuesto - Bambamarca Rural", lat: -6.6850, lon: -78.5401, cobertura: 9800 },
         { nombre: "Centro Propuesto - Cutervo Alto", lat: -6.3785, lon: -78.8230, cobertura: 11500 },
@@ -1144,49 +1048,37 @@ const puntosContaminacionSim = [
         { nombre: "Centro Propuesto - San Luis de Lucma", lat: -6.9302, lon: -78.6235, cobertura: 7000 }
       ];
 
-
-      // Parques simulados (polígonos)
       const dataParquesSim = {
         "type": "FeatureCollection",
         "features": [
-          // Plaza principal / Plaza de Armas (verificada)
           {
             "type": "Feature",
             "properties": { "nombre": "Plaza de Armas", "area_verde_m2_hab": 15, "deficit": false, "source": "OSM/123coordenadas" },
             "geometry": { "type": "Point", "coordinates": [-78.5174766, -7.1570468] }
           },
 
-          // Parques centrales y plazas verificadas
           { "type": "Feature", "properties": { "nombre": "Parque Las Flores", "source": "Mapcarta/OSM" }, "geometry": { "type": "Point", "coordinates": [-78.519718, -7.153394] } },
           { "type": "Feature", "properties": { "nombre": "Parque Ecológico", "source": "Mapcarta/OSM" }, "geometry": { "type": "Point", "coordinates": [-78.52064, -7.14769] } },
           { "type": "Feature", "properties": { "nombre": "Parque El Amauta", "source": "Waze/local listings" }, "geometry": { "type": "Point", "coordinates": [-78.5232273, -7.143912] } },
           { "type": "Feature", "properties": { "nombre": "Parque Santa Apolonia", "source": "Mapcarta/OSM" }, "geometry": { "type": "Point", "coordinates": [-78.51849, -7.15981] } },
           { "type": "Feature", "properties": { "nombre": "Plazuela San José", "source": "Mapcarta/OSM" }, "geometry": { "type": "Point", "coordinates": [-78.52056, -7.15278] } },
           { "type": "Feature", "properties": { "nombre": "Parque Ayacucho (Infantil)", "source": "Gob.pe / noticias locales (geocodificado)" }, "geometry": { "type": "Point", "coordinates": [-78.5120, -7.1608] } },
-
-          // Otros parques muy citados / verificables en directorios y mapas
           { "type": "Feature", "properties": { "nombre": "Parque La Colmena", "source": "OSM/municipal-list" }, "geometry": { "type": "Point", "coordinates": [-78.50806, -7.157222] } },
           { "type": "Feature", "properties": { "nombre": "Parque La Merced", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5158, -7.1492] } },
           { "type": "Feature", "properties": { "nombre": "Parque La Cultura", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5112, -7.1701] } },
           { "type": "Feature", "properties": { "nombre": "Parque El Estadio", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5075, -7.1635] } },
           { "type": "Feature", "properties": { "nombre": "Alameda de los Incas", "source": "local tourism / municipal" }, "geometry": { "type": "Point", "coordinates": [-78.5110, -7.1590] } },
           { "type": "Feature", "properties": { "nombre": "Parque La Esperanza", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.4945, -7.1700] } },
-
-          // Parques y plazuelas documentados en OSM/Mapcarta / directorios locales
           { "type": "Feature", "properties": { "nombre": "Parque San Francisco", "source": "OSM/Mapcarta" }, "geometry": { "type": "Point", "coordinates": [-78.5165, -7.1625] } },
           { "type": "Feature", "properties": { "nombre": "Parque San Martín", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5210, -7.1615] } },
           { "type": "Feature", "properties": { "nombre": "Plazuela La Merced", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5133, -7.1478] } },
           { "type": "Feature", "properties": { "nombre": "Parque Las Palmeras", "source": "local listings/OSM" }, "geometry": { "type": "Point", "coordinates": [-78.5295, -7.1488] } },
           { "type": "Feature", "properties": { "nombre": "Parque Mirador / Cerro Santa Apolonia (mirador)", "source": "OSM / Wikiloc" }, "geometry": { "type": "Point", "coordinates": [-78.5180, -7.1598] } },
-
-          // Parques de barrios y plazuelas (geocodificados desde direcciones y mapas)
           { "type": "Feature", "properties": { "nombre": "Parque Los Pinos", "source": "geocodificado" }, "geometry": { "type": "Point", "coordinates": [-78.5280, -7.1588] } },
           { "type": "Feature", "properties": { "nombre": "Parque San Pedro", "source": "geocodificado" }, "geometry": { "type": "Point", "coordinates": [-78.5218, -7.1687] } },
           { "type": "Feature", "properties": { "nombre": "Parque Huamachuco / Plazuela Huamachuco", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5255, -7.1462] } },
           { "type": "Feature", "properties": { "nombre": "Parque El Bosque", "source": "local listings/OSM" }, "geometry": { "type": "Point", "coordinates": [-78.4878, -7.1586] } },
           { "type": "Feature", "properties": { "nombre": "Parque La Merced Grande", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5192, -7.1468] } },
-
-          // Más parques citados en directorios municipales y turismo local (geocodificados)
           { "type": "Feature", "properties": { "nombre": "Parque La Alameda", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5123, -7.1742] } },
           { "type": "Feature", "properties": { "nombre": "Plazuela San Roque", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5072, -7.1683] } },
           { "type": "Feature", "properties": { "nombre": "Parque San Sebastián", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5060, -7.1483] } },
@@ -1197,7 +1089,6 @@ const puntosContaminacionSim = [
       };
 
 
-      // Vertederos simulados
       const vertederosSim = [
         { nombre: "Vertedero Cajamarca - Palturo", lat: -7.1900, lon: -78.4400, estado: "Activo" },
         { nombre: "Vertedero Jesús Alto", lat: -7.2105, lon: -78.5302, estado: "Activo" },
@@ -1219,37 +1110,19 @@ const puntosContaminacionSim = [
         { nombre: "Vertedero Sector Alto Pucará", lat: -7.3001, lon: -78.4807, estado: "Clausurado" }
       ];
 
-
-      // Cobertura de energia por área (usamos mismos polígonos de simulatedAreas pero podríamos tener GeoJSON separado)
-      // --- FIN datos simulados ---
-
-      /**************************************************************************
-       * Función: índice compuesto de prioridad (puedes ajustar pesos)
-       **************************************************************************/
       function calcularPrioridad(areaProps) {
-        // pesos (ajustables)
-        const wAcceso = 0.30;          // importa el acceso a servicios
-        const wContaminacion = 0.25;   // exposición a contaminantes
-        const wEnergia = 0.20;         // falta de energía
-        const wCalor = 0.25;           // riesgo térmico
-        // normalizaciones:
-        // - indice_acceso: 0 (peor) - 100 (mejor) -> invertimos
-        const accesoScore = 100 - (Number(areaProps.indice_acceso) || 50); // si falta, 50 por defecto
-        // - contaminacion: suponemos rango 0-200 (ajusta según tus datos)
+        const wAcceso = 0.30;
+        const wContaminacion = 0.25;
+        const wEnergia = 0.20;
+        const wCalor = 0.25;
+        const accesoScore = 100 - (Number(areaProps.indice_acceso) || 50);
         const contScore = Math.min(200, Number(areaProps.contaminacion || 50)) / 200 * 100;
-        // - cobertura_energia: 0 (peor) - 100 (mejor) -> invertimos
         const energiaScore = 100 - (Number(areaProps.cobertura_energia) || 60);
-        // - temp: normalizamos sobre 40°C máxima esperada (ajusta)
         const calorScore = Math.min(40, Number(areaProps.temp || 28)) / 40 * 100;
-
         const raw = (accesoScore * wAcceso) + (contScore * wContaminacion) + (energiaScore * wEnergia) + (calorScore * wCalor);
-        // escala 0-100
         return Math.round(Math.min(100, Math.max(0, raw)));
       }
 
-      /**************************************************************************
-       * Leaflet: creación de capas simuladas
-       **************************************************************************/
       let accesoLayer = null;
       let contaminacionLayer = null;
       let saludProposalsLayer = null;
@@ -1260,7 +1133,6 @@ const puntosContaminacionSim = [
       let energiaLayer = null;
 
       function buildAccessLayer(geojson) {
-        // Choropleth - índice de acceso (0 - 100)
         return L.geoJSON(geojson, {
           style: feature => {
             const v = Number(feature.properties.indice_acceso);
@@ -1344,7 +1216,6 @@ const puntosContaminacionSim = [
       }
 
       function buildEnergiaLayer(areasGeojson) {
-        // reutilizamos simulatedAreas para ejemplo
         return L.geoJSON(areasGeojson, {
           style: f => {
             const cov = Number(f.properties.cobertura_energia || 60);
@@ -1371,9 +1242,6 @@ const puntosContaminacionSim = [
         });
       }
 
-      /**************************************************************************
-       * Funciones de inicialización de capas (se ejecutan cuando mapInstance existe)
-       **************************************************************************/
       function initSimulatedLayers() {
         const map = safeGetMap();
         if (!map) {
@@ -1382,7 +1250,6 @@ const puntosContaminacionSim = [
           return;
         }
 
-        // Construir capas
         accesoLayer = buildAccessLayer(simulatedAreas);
         contaminacionLayer = buildContaminacionPoints(puntosContaminacionSim);
         saludProposalsLayer = buildSaludProposalMarkers(propuestasSalud);
@@ -1391,17 +1258,14 @@ const puntosContaminacionSim = [
         energiaLayer = buildEnergiaLayer(simulatedAreas);
         calorLayer = buildCalorLayer(simulatedAreas);
 
-        // Simulación de "crecimiento urbano" como tiles placeholder (usa URL de tiles si la tienes)
         crecimientoTileLayer = L.tileLayer('', {
           attribution: 'Crecimiento urbano (simulado)'
         });
 
-        // Añadir por defecto algunas capas
         accesoLayer.addTo(map);
         contaminacionLayer.addTo(map);
         parquesLayer.addTo(map);
 
-        // Panel de control de capas
         const overlays = {
           "Access to Services (Index)": accesoLayer,
           "Pollution (points)": contaminacionLayer,
@@ -1414,8 +1278,6 @@ const puntosContaminacionSim = [
 
 
         L.control.layers(null, overlays, { collapsed: false, position: 'topleft' }).addTo(map);
-
-        // Añadir botón personalizado en mapa para "Calcular Prioridad para todas las áreas"
         const PriorityControl = L.Control.extend({
           options: { position: 'topright' },
           onAdd: function () {
@@ -1435,26 +1297,19 @@ const puntosContaminacionSim = [
         map.addControl(new PriorityControl());
       }
 
-      /**************************************************************************
-       * Ejecutar cálculo de prioridades y pintar resultados (Leaflet + Chart + HTML)
-       **************************************************************************/
       function calcularYMostrarPrioridadesLeaflet() {
         const map = safeGetMap();
         if (!map) return;
 
-        // Calcular prioridad para cada polígono en simulatedAreas
         const features = simulatedAreas.features;
         const results = features.map(f => {
           const p = calcularPrioridad(f.properties);
-          // Guardamos en properties para persistencia
           f.properties.prioridad = p;
           return { id: f.properties.id, nombre: f.properties.nombre, prioridad: p };
         });
 
-        // Ordenar de mayor a menor
         results.sort((a, b) => b.prioridad - a.prioridad);
 
-        // Mostrar en el panel IA (existente)
         const out = document.getElementById('ai-output');
         if (out) {
           out.style.display = 'block';
@@ -1467,7 +1322,6 @@ const puntosContaminacionSim = [
       `;
         }
 
-        // Actualizar estilo de la capa de acceso para reflejar prioridad (borde + popup)
         if (accesoLayer) {
           accesoLayer.eachLayer(layer => {
             const props = layer.feature && layer.feature.properties;
@@ -1479,21 +1333,17 @@ const puntosContaminacionSim = [
           });
         }
 
-        // Crear/actualizar entidades 3D en Cesium si está activo
         const viewer = safeGetCesiumViewer();
         if (viewer) {
-          // remover entidades previas que añadimos con tag 'simulated-priority'
           const prev = viewer.entities.values.filter(e => e.name && e.name.startsWith('PRIORITY_'));
           prev.forEach(e => viewer.entities.remove(e));
 
-          // Añadir nuevas extrusiones
           simulatedAreas.features.forEach((f, idx) => {
-            const coords = f.geometry.coordinates[0]; // [ [lon,lat], ... ]
-            // convertimos a array de long, lat, long, lat...
+            const coords = f.geometry.coordinates[0];
             const flat = [];
             coords.forEach(pt => flat.push(pt[0], pt[1]));
             const prioridad = f.properties.prioridad || calcularPrioridad(f.properties);
-            const extrudedHeight = prioridad * 12 + 1000; // escala visual
+            const extrudedHeight = prioridad * 12 + 1000;
             const color = Cesium.Color.fromHsl((100 - prioridad) / 300, 0.85, 0.45, 0.8);
             try {
               viewer.entities.add({
@@ -1513,9 +1363,7 @@ const puntosContaminacionSim = [
           });
         }
 
-        // Actualizar gráfico de riskChart si existe (Chart.js)
         if (typeof riskChart !== 'undefined' && riskChart) {
-          // Tomamos 3 indicadores promedio para mostrar en gráfico (demostrativo)
           const avgNDVI = (features.reduce((acc, f) => acc + (Number(f.properties.indice_acceso) || 50), 0) / features.length) / 100;
           const avgLST = (features.reduce((acc, f) => acc + (Number(f.properties.temp) || 28), 0) / features.length);
           const avgDens = (features.reduce((acc, f) => acc + (1000 * ((100 - (f.properties.cobertura_energia || 60)) / 100)), 0) / features.length) / 1000;
@@ -1524,7 +1372,6 @@ const puntosContaminacionSim = [
           try { riskChart.update(); } catch (e) { console.warn('No se pudo actualizar riskChart', e); }
         }
 
-        // Centrar mapa en la área con mayor prioridad
         if (results.length) {
           const top = results[0];
           const feat = simulatedAreas.features.find(x => x.properties.id === top.id);
@@ -1535,11 +1382,7 @@ const puntosContaminacionSim = [
         }
       }
 
-      /**************************************************************************
-       * Integración con el módulo IA existente (botones del sidebar)
-       **************************************************************************/
       function integrateWithSidebar() {
-        // Creamos un bloque pequeño en el sidebar (no modificamos tu HTML original)
         const sidebarEl = document.getElementById('sidebar');
         if (!sidebarEl) return;
 
@@ -1557,13 +1400,11 @@ const puntosContaminacionSim = [
             alert('Cesium no está inicializado. Cambia a 3D (botón "Cambiar a 3D") para inicializarlo y vuelve a intentar.');
             return;
           }
-          // Forzamos recálculo y pintado (ya maneja Cesium internamente)
           calcularYMostrarPrioridadesLeaflet();
         });
         document.getElementById('sim-clear-entities').addEventListener('click', function () {
           const map = safeGetMap();
           if (map) {
-            // Removemos todas las capas que agregamos
             [accesoLayer, contaminacionLayer, parquesLayer, saludProposalsLayer, vertederosLayer, energiaLayer, calorLayer].forEach(l => {
               try { if (l && map.hasLayer(l)) map.removeLayer(l); } catch (e) { }
             });
@@ -1576,50 +1417,35 @@ const puntosContaminacionSim = [
           document.getElementById('sim-status').textContent = 'Estado: simulaciones limpias';
         });
       }
-
-      /**************************************************************************
-       * Inicializar todo cuando el mapa esté listo
-       **************************************************************************/
       function bootWhenReady() {
         const map = safeGetMap();
         if (!map) {
-          // Si mapInstance no existe aún, reintentar
           setTimeout(bootWhenReady, 400);
           return;
         }
-        // Sólo inicializar una vez
         if (window.__sim_layers_initialized) return;
         window.__sim_layers_initialized = true;
 
         initSimulatedLayers();
         integrateWithSidebar();
 
-        // Si el módulo IA existe y hay botón / output en tu UI, lo enlazamos opcionalmente
         const aiPredictBtn = document.getElementById('ai-predict');
         if (aiPredictBtn) {
-          // preservamos comportamiento original y añadimos cálculo de prioridad global como demo
           aiPredictBtn.addEventListener('click', function extraOnClick() {
-            // recalculamos prioridades al usar IA demo
             calcularYMostrarPrioridadesLeaflet();
           });
         }
       }
 
-      // lanzar
       bootWhenReady();
-
-      // Exponer funciones a window para depuración / uso en consola
       window.simulatedAreas = simulatedAreas;
       window.calcularPrioridad = calcularPrioridad;
       window.calcularYMostrarPrioridadesLeaflet = calcularYMostrarPrioridadesLeaflet;
 
-      /* ----------------- Módulos: Integraciones reales ----------------- */
 
-      // Utilidades
       function safeGetMap() { if (typeof mapInstance !== 'undefined' && mapInstance) return mapInstance; return null; }
       function safeGetCesiumViewer() { if (typeof cesiumViewer !== 'undefined' && cesiumViewer) return cesiumViewer; return null; }
 
-      /***** 1) OpenAQ: calidad del aire (puntos) *****/
       async function cargarContaminacionReal(radiusMeters = 50000) {
         const map = safeGetMap();
         if (!map) return null;
@@ -1634,9 +1460,8 @@ const puntosContaminacionSim = [
 
           const layer = L.layerGroup();
           data.results.forEach(r => {
-            const coord = r.coordinates || {}; // {latitude, longitude}
+            const coord = r.coordinates || {};
             if (!coord.latitude || !coord.longitude) return;
-            // tomamos la primera medición significativa
             const m = r.measurements && r.measurements[0];
             const value = m ? m.value : null;
             const unit = m ? m.unit : '';
@@ -1657,7 +1482,6 @@ const puntosContaminacionSim = [
         }
       }
 
-      /***** 2) Open-Meteo: temperatura actual *****/
       async function actualizarTemperaturaReal() {
         const base = 'https://api.open-meteo.com/v1/forecast';
         const params = new URLSearchParams({ latitude: CAJAMARCA_COORDS[0], longitude: CAJAMARCA_COORDS[1], current_weather: true });
@@ -1680,7 +1504,6 @@ const puntosContaminacionSim = [
         }
       }
 
-      /***** 3) NASA GIBS (MODIS NDVI) — WMS tileLayer *****/
       function agregarNDVIReal() {
         const map = safeGetMap();
         if (!map) return null;
@@ -1700,7 +1523,6 @@ const puntosContaminacionSim = [
         }
       }
 
-      /***** 4) Overpass (OpenStreetMap): hospitales/centros de salud *****/
       async function cargarCentrosSalud(radiusMeters = 50000) {
         const map = safeGetMap();
         if (!map) return null;
@@ -1754,27 +1576,17 @@ const puntosContaminacionSim = [
         }
       }
 
-
-      /***** 5) Densidad poblacional (fallback simple: WorldPop / placeholder) *****/
-      // Implementar una integración profunda con WorldPop o INEI requiere preprocesamiento.
-      // Aquí dejaremos una llamada que puede apuntar a un geojson procesado si lo subes al servidor.
       async function cargarDensidadFallback() {
-        // Si tienes un geojson con densidad por polígonos, reemplaza la URL
         const map = safeGetMap();
         if (!map) return null;
         try {
-          // ejemplo: const res = await fetch('/data/densidad_cajamarca.geojson');
-          // const gj = await res.json();
-          // const lg = L.geoJSON(gj, { style: ... }).addTo(map);
-          // return lg;
-          return null; // no hay datos preprocesados en esta versión
+          return null;
         } catch (err) {
           console.warn('No hay densidad poblacional preprocesada:', err);
           return null;
         }
       }
 
-      /***** 6) Cálculo de prioridad (igual que antes, pero ahora usando propiedades reales cuando existan) *****/
       function calcularPrioridad(areaProps) {
         const wAcceso = 0.30, wContaminacion = 0.25, wEnergia = 0.20, wCalor = 0.25;
         const accesoScore = 100 - (Number(areaProps.indice_acceso) || 50);
@@ -1785,9 +1597,8 @@ const puntosContaminacionSim = [
         return Math.round(Math.min(100, Math.max(0, raw)));
       }
 
-      /***** 7) Manejo de clicks en el mapa (ahora intentamos consultar Open-Meteo y NDVI aproximado) *****/
       async function handleMapClick(coords) {
-        const ndvi = await sampleNDVI(coords.lat, coords.lng); // función de muestreo (fallback si no es posible)
+        const ndvi = await sampleNDVI(coords.lat, coords.lng);
         const lst = await sampleLST(coords.lat, coords.lng);
         const dens = await sampleDensidad(coords.lat, coords.lng);
 
@@ -1821,15 +1632,11 @@ const puntosContaminacionSim = [
         if (window.innerWidth <= 900) sidebar.classList.remove('open');
       }
 
-      // Muestreos y aproximaciones (NDVI, LST, Densidad)
       async function sampleNDVI(lat, lon) {
-        // No existe una API sencilla para muestrear MODIS NDVI en un punto sin proxy; devolvemos una aproximación basada en tile WMS (no se descarga el raster aquí).
-        // Para esta versión, devolvemos null y dejamos la capa WMS visible. Puedes implementar un servicio servidor-side para muestreos precisos.
         return null;
       }
 
       async function sampleLST(lat, lon) {
-        // usamos Open-Meteo current_weather como aproximación (esa API no da LST puntual pero da temperatura 2m)
         try {
           const base = 'https://api.open-meteo.com/v1/forecast';
           const params = new URLSearchParams({ latitude: lat, longitude: lon, current_weather: true });
@@ -1841,18 +1648,15 @@ const puntosContaminacionSim = [
       }
 
       async function sampleDensidad(lat, lon) {
-        // sin integración directa, devolvemos null. Si subes un GeoJSON con densidades, aquí haríamos un lookup.
         return null;
       }
 
-      /* ----------------- Módulo IA: regla ponderada (se mantiene) ----------------- */
       document.getElementById('ai-predict').addEventListener('click', async () => {
         const ndvi = parseFloat(document.getElementById('ai-ndvi').value);
         const lst = parseFloat(document.getElementById('ai-lst').value);
         const dens = parseFloat(document.getElementById('ai-den').value);
         const out = document.getElementById('ai-output');
 
-        // Regla ponderada demo (0-1)
         const risk = Math.min(1, Math.max(0,
           0.5 * (1 - ndvi) + 0.35 * ((lst - 15) / 30) + 0.15 * (dens / 10000)
         ));
@@ -1862,23 +1666,18 @@ const puntosContaminacionSim = [
         out.style.backgroundColor = `rgba(255, ${255 - riskPct * 2.55}, ${255 - riskPct * 2.55}, 0.8)`;
         out.innerHTML = `<div>Estimación IA: <strong>Riesgo ${riskPct}%</strong> (${riskPct > 60 ? '¡Alta prioridad!' : 'Prioridad baja/media'}).</div>`;
 
-        // recalculamos prioridades globales si existen capas relevantes
         if (window.calcularYMostrarPrioridadesLeaflet) try { window.calcularYMostrarPrioridadesLeaflet(); } catch (e) { }
       });
 
-      /* ----------------- Inicialización de capas reales al cargar ----------------- */
       async function inicializarDatosReales() {
-        // Esperamos a que mapInstance esté listo
         const waitMap = new Promise(resolve => {
           const t = setInterval(() => { if (safeGetMap()) { clearInterval(t); resolve(); } }, 200);
         });
         await waitMap;
 
-        // Cargamos capas en paralelo (fallos no bloqueantes)
         const promises = [cargarContaminacionReal(), actualizarTemperaturaReal(), cargarCentrosSalud(), agregarNDVIReal(), cargarDensidadFallback()];
         const [contLayer, temp, saludLayer, ndviLayer, densLayer] = await Promise.all(promises.map(p => p.catch ? p.catch(e => { console.warn(e); return null; }) : p));
 
-        // Añadir control de capas si mapInstance existe
         const map = safeGetMap();
         if (map) {
           const overlays = {};
@@ -1889,31 +1688,22 @@ const puntosContaminacionSim = [
           if (Object.keys(overlays).length) L.control.layers(null, overlays, { collapsed: false, position: 'topleft' }).addTo(map);
         }
 
-        // Actualizamos algunos KPIs iniciales
         if (typeof temp !== 'undefined' && temp !== null) {
           const display = document.querySelector('#ai-lst + .value-display');
           if (display) display.textContent = parseFloat(temp).toFixed(1);
         }
 
-        // Exponer variables globales para depuración
         window._real_layers = { contLayer, saludLayer, ndviLayer, densLayer };
-
         console.log('Datos reales inicializados.');
       }
 
-      // Ejecutar inicialización
       window.addEventListener('load', () => {
         inicializarDatosReales();
       });
 
-      /* ----------------- Funciones de prioridad y visualización 3D (compatibilidad) ----------------- */
-      // Conservamos la función calcularYMostrarPrioridadesLeaflet similar a la versión simulada, pero
-      // adaptada para trabajar si hay GeoJSON con propiedades. En esta versión si no hay datos simulados
-      // la función se limitará a notificar.
       function calcularYMostrarPrioridadesLeaflet() {
         const map = safeGetMap();
         if (!map) return;
-        // Intentamos usar ventana simulatedAreas si existe (compatibilidad retro)
         const feats = window.simulatedAreas && window.simulatedAreas.features ? window.simulatedAreas.features : [];
         if (!feats.length) {
           const out = document.getElementById('ai-output');
@@ -1930,10 +1720,8 @@ const puntosContaminacionSim = [
           out.innerHTML = `<h4>Índice de Prioridad (calculado)</h4><ol>${results.map(r => `<li><strong>${r.nombre}</strong>: ${r.prioridad}%</li>`).join('')}</ol>`;
         }
 
-        // Cesium extrusions (si existe viewer)
         const viewer = safeGetCesiumViewer();
         if (viewer) {
-          // borramos previas
           const prev = viewer.entities.values.filter(e => e.name && e.name.startsWith('PRIORITY_'));
           prev.forEach(e => viewer.entities.remove(e));
           feats.forEach(f => {
@@ -1949,16 +1737,11 @@ const puntosContaminacionSim = [
         }
       }
 
-      // Exponer algunas utilidades globales para debugging
       window.calcularYMostrarPrioridadesLeaflet = calcularYMostrarPrioridadesLeaflet;
-
-      /* ----------------- Mensajes / Fallbacks ----------------- */
       console.log('JS real cargado. Si falta algún dataset (densidad, NDVI muestreos), considera preprocesar y subir un GeoJSON al servidor y actualizar las funciones de carga.');
 
     })();
   </script>
-  <!-- ------------------ FIN: Simulaciones y capas adicionales ------------------ -->
-
   </body>
 
 </html>
