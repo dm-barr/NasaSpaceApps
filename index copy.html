@@ -622,6 +622,579 @@
       riskChart.update();
     }
   </script>
+  <!-- ------------------ INICIO: Simulaciones y capas adicionales ------------------ -->
+  <script>
+    (function () {
+      // --- Seguridad: asegurar que mapa Leaflet exista ---
+      if (typeof mapInstance === 'undefined' || !mapInstance) {
+        console.warn('Simulación: mapInstance no detectado todavía. Esta capa se añadirá cuando el mapa esté listo.');
+        // Esperar a que window.mapInstance exista o que se dispare evento custom (reintentamos más abajo)
+      }
+
+      /**************************************************************************
+       * Utilidades pequeñas
+       **************************************************************************/
+      function safeGetMap() {
+        if (typeof mapInstance !== 'undefined' && mapInstance) return mapInstance;
+        return null;
+      }
+
+      function safeGetCesiumViewer() {
+        if (typeof cesiumViewer !== 'undefined' && cesiumViewer) return cesiumViewer;
+        return null;
+      }
+
+      function createElementFromHTML(htmlString) {
+        const div = document.createElement('div');
+        div.innerHTML = htmlString.trim();
+        return div.firstChild;
+      }
+
+      // Color ramp utility para choropleth
+      function getColorRamped(value, breaks, colors) {
+        for (let i = 0; i < breaks.length; i++) {
+          if (value <= breaks[i]) return colors[i];
+        }
+        return colors[colors.length - 1];
+      }
+
+      /**************************************************************************
+       * Datos simulados (GeoJSON y arrays). Reemplázalos por tus datos reales.
+       **************************************************************************/
+      // Nota: coordenadas demo centradas en Cajamarca (~lat -7.17, lon -78.5).
+      const simulatedAreas = {
+        "type": "FeatureCollection",
+        "features": [
+          {
+            "type": "Feature",
+            "properties": {
+              "id": "A",
+              "nombre": "Sector A - Centro",
+              "indice_acceso": 76,
+              "deficiencia": "vivienda",
+              "contaminacion": 40,
+              "cobertura_energia": 92,
+              "temp": 27
+            },
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [[
+                [-78.52, -7.16],
+                [-78.49, -7.16],
+                [-78.49, -7.18],
+                [-78.52, -7.18],
+                [-78.52, -7.16]
+              ]]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "id": "B",
+              "nombre": "Sector B - Norte",
+              "indice_acceso": 34,
+              "deficiencia": "alimentación",
+              "contaminacion": 120,
+              "cobertura_energia": 58,
+              "temp": 33
+            },
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [[
+                [-78.53, -7.14],
+                [-78.50, -7.14],
+                [-78.50, -7.16],
+                [-78.53, -7.16],
+                [-78.53, -7.14]
+              ]]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "id": "C",
+              "nombre": "Sector C - Periferia Este",
+              "indice_acceso": 48,
+              "deficiencia": "transporte",
+              "contaminacion": 60,
+              "cobertura_energia": 35,
+              "temp": 30
+            },
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [[
+                [-78.46, -7.17],
+                [-78.43, -7.17],
+                [-78.43, -7.19],
+                [-78.46, -7.19],
+                [-78.46, -7.17]
+              ]]
+            }
+          }
+        ]
+      };
+
+      // Puntos de contaminación simulada (aire / agua)
+      const puntosContaminacionSim = [
+        { nombre: "Zona Industrial Norte", tipo: "Aire", valor: 140, coords: [-78.521, -7.152] },
+        { nombre: "Vertido Río San Pedro", tipo: "Agua", valor: 85, coords: [-78.519, -7.154] },
+        { nombre: "Quema Residual - Sector B", tipo: "Aire", valor: 110, coords: [-78.505, -7.145] }
+      ];
+
+      // Propuestas de centros de salud
+      const propuestasSalud = [
+        { nombre: "Centro Propuesto 1", lat: -7.155, lon: -78.523, cobertura: 12500 },
+        { nombre: "Centro Propuesto 2", lat: -7.159, lon: -78.518, cobertura: 9300 }
+      ];
+
+      // Parques simulados (polígonos)
+      const dataParquesSim = {
+        "type": "FeatureCollection",
+        "features": [
+          {
+            "type": "Feature",
+            "properties": { "nombre": "Parque Central", "area_verde_m2_hab": 12, "deficit": false },
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [[
+                [-78.515, -7.162],
+                [-78.512, -7.162],
+                [-78.512, -7.164],
+                [-78.515, -7.164],
+                [-78.515, -7.162]
+              ]]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": { "nombre": "Parque La Esperanza", "area_verde_m2_hab": 1.8, "deficit": true },
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [[
+                [-78.495, -7.170],
+                [-78.492, -7.170],
+                [-78.492, -7.172],
+                [-78.495, -7.172],
+                [-78.495, -7.170]
+              ]]
+            }
+          }
+        ]
+      };
+
+      // Vertederos ilegales simulados
+      const vertederosSim = [
+        { nombre: "Vertedero 1", lat: -7.153, lon: -78.525, estado: "Activo" },
+        { nombre: "Vertedero 2", lat: -7.158, lon: -78.520, estado: "En proceso de clausura" }
+      ];
+
+      // Cobertura de energia por área (usamos mismos polígonos de simulatedAreas pero podríamos tener GeoJSON separado)
+      // --- FIN datos simulados ---
+
+      /**************************************************************************
+       * Función: índice compuesto de prioridad (puedes ajustar pesos)
+       **************************************************************************/
+      function calcularPrioridad(areaProps) {
+        // pesos (ajustables)
+        const wAcceso = 0.30;          // importa el acceso a servicios
+        const wContaminacion = 0.25;   // exposición a contaminantes
+        const wEnergia = 0.20;         // falta de energía
+        const wCalor = 0.25;           // riesgo térmico
+        // normalizaciones:
+        // - indice_acceso: 0 (peor) - 100 (mejor) -> invertimos
+        const accesoScore = 100 - (Number(areaProps.indice_acceso) || 50); // si falta, 50 por defecto
+        // - contaminacion: suponemos rango 0-200 (ajusta según tus datos)
+        const contScore = Math.min(200, Number(areaProps.contaminacion || 50)) / 200 * 100;
+        // - cobertura_energia: 0 (peor) - 100 (mejor) -> invertimos
+        const energiaScore = 100 - (Number(areaProps.cobertura_energia) || 60);
+        // - temp: normalizamos sobre 40°C máxima esperada (ajusta)
+        const calorScore = Math.min(40, Number(areaProps.temp || 28)) / 40 * 100;
+
+        const raw = (accesoScore * wAcceso) + (contScore * wContaminacion) + (energiaScore * wEnergia) + (calorScore * wCalor);
+        // escala 0-100
+        return Math.round(Math.min(100, Math.max(0, raw)));
+      }
+
+      /**************************************************************************
+       * Leaflet: creación de capas simuladas
+       **************************************************************************/
+      let accesoLayer = null;
+      let contaminacionLayer = null;
+      let saludProposalsLayer = null;
+      let parquesLayer = null;
+      let crecimientoTileLayer = null;
+      let calorLayer = null;
+      let vertederosLayer = null;
+      let energiaLayer = null;
+
+      function buildAccessLayer(geojson) {
+        // Choropleth - índice de acceso (0 - 100)
+        return L.geoJSON(geojson, {
+          style: feature => {
+            const v = Number(feature.properties.indice_acceso);
+            const color = getColorRamped(v, [20, 40, 60, 80], ['#fc8d59', '#fee08b', '#d9ef8b', '#91cf60', '#1a9850']);
+            return { color: '#ffffff', weight: 1, fillColor: color, fillOpacity: 0.75 };
+          },
+          onEachFeature: (feature, layer) => {
+            layer.bindPopup(`
+          <b>${feature.properties.nombre}</b><br>
+          Índice de acceso: <strong>${feature.properties.indice_acceso}</strong><br>
+          Deficiencia principal: <strong>${feature.properties.deficiencia}</strong><br>
+          Contaminación (sim): ${feature.properties.contaminacion}<br>
+          Cobertura energía: ${feature.properties.cobertura_energia}%
+        `);
+            layer.on('mouseover', () => layer.setStyle({ weight: 2 }));
+            layer.on('mouseout', () => layer.setStyle({ weight: 1 }));
+          }
+        });
+      }
+
+      function buildContaminacionPoints(points) {
+        const lg = L.layerGroup();
+        points.forEach(p => {
+          const color = p.tipo === 'Aire' ? '#d7191c' : '#2b83ba';
+          const r = Math.min(18, Math.max(6, p.valor / 10));
+          const marker = L.circleMarker([p.coords[1], p.coords[0]], {
+            radius: r,
+            fillColor: color,
+            color: '#ffffff',
+            weight: 1,
+            fillOpacity: 0.85
+          }).bindPopup(`<b>${p.nombre}</b><br>Tipo: ${p.tipo}<br>Valor: ${p.valor}<br>Estado: ${p.valor > 100 ? '<strong>Crítico</strong>' : 'Moderado'}`);
+          lg.addLayer(marker);
+        });
+        return lg;
+      }
+
+      function buildSaludProposalMarkers(proposals) {
+        const lg = L.layerGroup();
+        proposals.forEach(p => {
+          const marker = L.marker([p.lat, p.lon], {
+            title: p.nombre,
+            icon: L.icon({
+              iconUrl: 'https://cdn.jsdelivr.net/gh/edent/SuperTinyIcons/images/svg/hospital.svg',
+              iconSize: [28, 28],
+              iconAnchor: [14, 28]
+            })
+          }).bindPopup(`<b>${p.nombre}</b><br>Cobertura estimada: ${p.cobertura.toLocaleString()} hab`);
+          lg.addLayer(marker);
+        });
+        return lg;
+      }
+
+      function buildParquesLayer(geojson) {
+        return L.geoJSON(geojson, {
+          style: f => ({
+            fillColor: f.properties.deficit ? '#f03b20' : '#31a354',
+            color: '#ffffff',
+            weight: 0.6,
+            fillOpacity: 0.65
+          }),
+          onEachFeature: (f, l) => {
+            l.bindPopup(`<b>${f.properties.nombre}</b><br>Área verde (m²/hab): ${f.properties.area_verde_m2_hab}<br>Déficit: ${f.properties.deficit ? 'Sí' : 'No'}`);
+          }
+        });
+      }
+
+      function buildVertederosMarkers(list) {
+        const lg = L.layerGroup();
+        list.forEach(v => {
+          const m = L.marker([v.lat, v.lon], {
+            icon: L.icon({
+              iconUrl: 'https://cdn.jsdelivr.net/gh/edent/SuperTinyIcons/images/svg/trash.svg',
+              iconSize: [26, 26],
+              iconAnchor: [13, 26]
+            })
+          }).bindPopup(`<b>${v.nombre}</b><br>Estado: ${v.estado}`);
+          lg.addLayer(m);
+        });
+        return lg;
+      }
+
+      function buildEnergiaLayer(areasGeojson) {
+        // reutilizamos simulatedAreas para ejemplo
+        return L.geoJSON(areasGeojson, {
+          style: f => {
+            const cov = Number(f.properties.cobertura_energia || 60);
+            const color = getColorRamped(cov, [40, 60, 80], ['#d7191c', '#fdae61', '#a6d96a', '#1a9850']);
+            return { color: '#fff', weight: 1, fillColor: color, fillOpacity: 0.7 };
+          },
+          onEachFeature: (f, l) => {
+            l.bindPopup(`<b>${f.properties.nombre}</b><br>Cobertura eléctrica: ${f.properties.cobertura_energia}%`);
+          }
+        });
+      }
+
+      function buildCalorLayer(areasGeojson) {
+        return L.geoJSON(areasGeojson, {
+          style: f => {
+            const t = Number(f.properties.temp || 28);
+            const c = getColorRamped(t, [26, 28, 30, 32], ['#a6d96a', '#fdae61', '#f46d43', '#d73027', '#7f0000']);
+            return { color: '#fff', weight: 1, fillColor: c, fillOpacity: 0.7 };
+          },
+          onEachFeature: (f, l) => {
+            const prioridad = calcularPrioridad(f.properties);
+            l.bindPopup(`<b>${f.properties.nombre}</b><br>Temp: ${f.properties.temp}°C<br>Prioridad calculada: ${prioridad}`);
+          }
+        });
+      }
+
+      /**************************************************************************
+       * Funciones de inicialización de capas (se ejecutan cuando mapInstance existe)
+       **************************************************************************/
+      function initSimulatedLayers() {
+        const map = safeGetMap();
+        if (!map) {
+          console.warn('initSimulatedLayers: Leaflet map no disponible todavía. Reintentando en 500ms...');
+          setTimeout(initSimulatedLayers, 500);
+          return;
+        }
+
+        // Construir capas
+        accesoLayer = buildAccessLayer(simulatedAreas);
+        contaminacionLayer = buildContaminacionPoints(puntosContaminacionSim);
+        saludProposalsLayer = buildSaludProposalMarkers(propuestasSalud);
+        parquesLayer = buildParquesLayer(dataParquesSim);
+        vertederosLayer = buildVertederosMarkers(vertederosSim);
+        energiaLayer = buildEnergiaLayer(simulatedAreas);
+        calorLayer = buildCalorLayer(simulatedAreas);
+
+        // Simulación de "crecimiento urbano" como tiles placeholder (usa URL de tiles si la tienes)
+        crecimientoTileLayer = L.tileLayer('', {
+          attribution: 'Crecimiento urbano (simulado)'
+        });
+
+        // Añadir por defecto algunas capas
+        accesoLayer.addTo(map);
+        contaminacionLayer.addTo(map);
+        parquesLayer.addTo(map);
+
+        // Panel de control de capas
+        const overlays = {
+          "Acceso a Servicios (Índice)": accesoLayer,
+          "Contaminación (puntos)": contaminacionLayer,
+          "Propuestas - Centros de Salud": saludProposalsLayer,
+          "Parques (déficit vs suficiente)": parquesLayer,
+          "Crecimiento urbano (tiles simulados)": crecimientoTileLayer,
+          "Zonas de riesgo térmico": calorLayer,
+          "Vertederos ilegales": vertederosLayer,
+          "Cobertura eléctrica (%)": energiaLayer
+        };
+
+        L.control.layers(null, overlays, { collapsed: false, position: 'topleft' }).addTo(map);
+
+        // Añadir botón personalizado en mapa para "Calcular Prioridad para todas las áreas"
+        const PriorityControl = L.Control.extend({
+          options: { position: 'topright' },
+          onAdd: function () {
+            const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+            container.style.background = '#fff';
+            container.style.padding = '4px';
+            container.style.cursor = 'pointer';
+            container.title = 'Calcular índice de prioridad para áreas simuladas';
+            container.innerHTML = '🔎 Priorizar';
+            L.DomEvent.disableClickPropagation(container);
+            container.onclick = function () {
+              calcularYMostrarPrioridadesLeaflet();
+            };
+            return container;
+          }
+        });
+        map.addControl(new PriorityControl());
+      }
+
+      /**************************************************************************
+       * Ejecutar cálculo de prioridades y pintar resultados (Leaflet + Chart + HTML)
+       **************************************************************************/
+      function calcularYMostrarPrioridadesLeaflet() {
+        const map = safeGetMap();
+        if (!map) return;
+
+        // Calcular prioridad para cada polígono en simulatedAreas
+        const features = simulatedAreas.features;
+        const results = features.map(f => {
+          const p = calcularPrioridad(f.properties);
+          // Guardamos en properties para persistencia
+          f.properties.prioridad = p;
+          return { id: f.properties.id, nombre: f.properties.nombre, prioridad: p };
+        });
+
+        // Ordenar de mayor a menor
+        results.sort((a, b) => b.prioridad - a.prioridad);
+
+        // Mostrar en el panel IA (existente)
+        const out = document.getElementById('ai-output');
+        if (out) {
+          out.style.display = 'block';
+          out.style.padding = '8px';
+          out.innerHTML = `<h4>Índice de Prioridad (simulado)</h4>
+        <ol>
+          ${results.map(r => `<li><strong>${r.nombre}</strong>: ${r.prioridad}%</li>`).join('')}
+        </ol>
+        <small>Este índice es una simulación basada en variables sintéticas. Reemplazar datos por mediciones reales para decisiones operativas.</small>
+      `;
+        }
+
+        // Actualizar estilo de la capa de acceso para reflejar prioridad (borde + popup)
+        if (accesoLayer) {
+          accesoLayer.eachLayer(layer => {
+            const props = layer.feature && layer.feature.properties;
+            if (props && typeof props.prioridad !== 'undefined') {
+              const edgeColor = props.prioridad > 65 ? '#7f0000' : props.prioridad > 45 ? '#d73027' : '#2b8cbe';
+              layer.setStyle({ color: edgeColor, weight: 2 });
+              layer.bindPopup(layer.getPopup().getContent() + `<br><b>Prioridad intervención:</b> ${props.prioridad}%`);
+            }
+          });
+        }
+
+        // Crear/actualizar entidades 3D en Cesium si está activo
+        const viewer = safeGetCesiumViewer();
+        if (viewer) {
+          // remover entidades previas que añadimos con tag 'simulated-priority'
+          const prev = viewer.entities.values.filter(e => e.name && e.name.startsWith('PRIORITY_'));
+          prev.forEach(e => viewer.entities.remove(e));
+
+          // Añadir nuevas extrusiones
+          simulatedAreas.features.forEach((f, idx) => {
+            const coords = f.geometry.coordinates[0]; // [ [lon,lat], ... ]
+            // convertimos a array de long, lat, long, lat...
+            const flat = [];
+            coords.forEach(pt => flat.push(pt[0], pt[1]));
+            const prioridad = f.properties.prioridad || calcularPrioridad(f.properties);
+            const extrudedHeight = prioridad * 12 + 1000; // escala visual
+            const color = Cesium.Color.fromHsl((100 - prioridad) / 300, 0.85, 0.45, 0.8);
+            try {
+              viewer.entities.add({
+                name: `PRIORITY_${f.properties.id}`,
+                polygon: {
+                  hierarchy: Cesium.Cartesian3.fromDegreesArray(flat),
+                  extrudedHeight: extrudedHeight,
+                  material: color,
+                  outline: true,
+                  outlineColor: Cesium.Color.WHITE
+                },
+                description: `Prioridad: ${prioridad}%`
+              });
+            } catch (err) {
+              console.warn('No se pudo crear entidad Cesium para', f.properties.nombre, err);
+            }
+          });
+        }
+
+        // Actualizar gráfico de riskChart si existe (Chart.js)
+        if (typeof riskChart !== 'undefined' && riskChart) {
+          // Tomamos 3 indicadores promedio para mostrar en gráfico (demostrativo)
+          const avgNDVI = (features.reduce((acc, f) => acc + (Number(f.properties.indice_acceso) || 50), 0) / features.length) / 100;
+          const avgLST = (features.reduce((acc, f) => acc + (Number(f.properties.temp) || 28), 0) / features.length);
+          const avgDens = (features.reduce((acc, f) => acc + (1000 * ((100 - (f.properties.cobertura_energia || 60)) / 100)), 0) / features.length) / 1000;
+          riskChart.data.labels = ['Acceso normalizado', 'Temp promedio (°C)', 'Déficit energético (norm)'];
+          riskChart.data.datasets[0].data = [avgNDVI * 35, avgLST, avgDens * 5];
+          try { riskChart.update(); } catch (e) { console.warn('No se pudo actualizar riskChart', e); }
+        }
+
+        // Centrar mapa en la área con mayor prioridad
+        if (results.length) {
+          const top = results[0];
+          const feat = simulatedAreas.features.find(x => x.properties.id === top.id);
+          if (feat) {
+            const bounds = L.geoJSON(feat).getBounds();
+            map.fitBounds(bounds, { maxZoom: 13 });
+          }
+        }
+      }
+
+      /**************************************************************************
+       * Integración con el módulo IA existente (botones del sidebar)
+       **************************************************************************/
+      function integrateWithSidebar() {
+        // Creamos un bloque pequeño en el sidebar (no modificamos tu HTML original)
+        const sidebarEl = document.getElementById('sidebar');
+        if (!sidebarEl) return;
+
+        // Contenedor
+        const container = document.createElement('div');
+        container.style.marginTop = '12px';
+        container.style.paddingTop = '10px';
+        container.style.borderTop = '1px solid #eee';
+
+        container.innerHTML = `
+      <h4 style="margin:0 0 8px 0;">🛠️ Simulaciones Rápidas</h4>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button id="sim-run-priority" class="map-mode-btn" style="padding:8px;border-radius:8px;border:1px solid #e6e6e6;background:#fff;cursor:pointer;">Calcular Prioridades</button>
+        <button id="sim-show-cesium" class="map-mode-btn" style="padding:8px;border-radius:8px;border:1px solid #e6e6e6;background:#fff;cursor:pointer;">Actualizar 3D (si Cesium)</button>
+        <button id="sim-clear-entities" class="map-mode-btn" style="padding:8px;border-radius:8px;border:1px solid #e6e6e6;background:#fff;cursor:pointer;">Limpiar Simulaciones</button>
+      </div>
+      <div id="sim-status" style="margin-top:8px;color:var(--muted);font-size:0.9rem;">Estado: listo (simulación local)</div>
+    `;
+        sidebarEl.appendChild(container);
+
+        document.getElementById('sim-run-priority').addEventListener('click', calcularYMostrarPrioridadesLeaflet);
+        document.getElementById('sim-show-cesium').addEventListener('click', function () {
+          const viewer = safeGetCesiumViewer();
+          if (!viewer) {
+            alert('Cesium no está inicializado. Cambia a 3D (botón "Cambiar a 3D") para inicializarlo y vuelve a intentar.');
+            return;
+          }
+          // Forzamos recálculo y pintado (ya maneja Cesium internamente)
+          calcularYMostrarPrioridadesLeaflet();
+        });
+        document.getElementById('sim-clear-entities').addEventListener('click', function () {
+          const map = safeGetMap();
+          if (map) {
+            // Removemos todas las capas que agregamos
+            [accesoLayer, contaminacionLayer, parquesLayer, saludProposalsLayer, vertederosLayer, energiaLayer, calorLayer].forEach(l => {
+              try { if (l && map.hasLayer(l)) map.removeLayer(l); } catch (e) { }
+            });
+          }
+          const viewer = safeGetCesiumViewer();
+          if (viewer) {
+            const prev = viewer.entities.values.filter(e => e.name && e.name.startsWith('PRIORITY_'));
+            prev.forEach(e => viewer.entities.remove(e));
+          }
+          document.getElementById('sim-status').textContent = 'Estado: simulaciones limpias';
+        });
+      }
+
+      /**************************************************************************
+       * Inicializar todo cuando el mapa esté listo
+       **************************************************************************/
+      function bootWhenReady() {
+        const map = safeGetMap();
+        if (!map) {
+          // Si mapInstance no existe aún, reintentar
+          setTimeout(bootWhenReady, 400);
+          return;
+        }
+        // Sólo inicializar una vez
+        if (window.__sim_layers_initialized) return;
+        window.__sim_layers_initialized = true;
+
+        initSimulatedLayers();
+        integrateWithSidebar();
+
+        // Si el módulo IA existe y hay botón / output en tu UI, lo enlazamos opcionalmente
+        const aiPredictBtn = document.getElementById('ai-predict');
+        if (aiPredictBtn) {
+          // preservamos comportamiento original y añadimos cálculo de prioridad global como demo
+          aiPredictBtn.addEventListener('click', function extraOnClick() {
+            // recalculamos prioridades al usar IA demo
+            calcularYMostrarPrioridadesLeaflet();
+          });
+        }
+      }
+
+      // lanzar
+      bootWhenReady();
+
+      // Exponer funciones a window para depuración / uso en consola
+      window.simulatedAreas = simulatedAreas;
+      window.calcularPrioridad = calcularPrioridad;
+      window.calcularYMostrarPrioridadesLeaflet = calcularYMostrarPrioridadesLeaflet;
+
+    })();
+  </script>
+  <!-- ------------------ FIN: Simulaciones y capas adicionales ------------------ -->
+
 </body>
 
 </html>
