@@ -1191,6 +1191,348 @@
       window.calcularPrioridad = calcularPrioridad;
       window.calcularYMostrarPrioridadesLeaflet = calcularYMostrarPrioridadesLeaflet;
 
+          /* ----------------- Módulos: Integraciones reales ----------------- */
+
+    // Utilidades
+    function safeGetMap() { if (typeof mapInstance !== 'undefined' && mapInstance) return mapInstance; return null; }
+    function safeGetCesiumViewer() { if (typeof cesiumViewer !== 'undefined' && cesiumViewer) return cesiumViewer; return null; }
+
+    /***** 1) OpenAQ: calidad del aire (puntos) *****/
+    async function cargarContaminacionReal(radiusMeters = 50000) {
+      const map = safeGetMap();
+      if (!map) return null;
+      const baseUrl = 'https://api.openaq.org/v2/latest';
+      const params = new URLSearchParams({ coordinates: `${CAJAMARCA_COORDS[0]},${CAJAMARCA_COORDS[1]}`, radius: radiusMeters, limit: 50 });
+      const url = `${baseUrl}?${params.toString()}`;
+
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('OpenAQ no responde');
+        const data = await res.json();
+
+        const layer = L.layerGroup();
+        data.results.forEach(r => {
+          const coord = r.coordinates || {}; // {latitude, longitude}
+          if (!coord.latitude || !coord.longitude) return;
+          // tomamos la primera medición significativa
+          const m = r.measurements && r.measurements[0];
+          const value = m ? m.value : null;
+          const unit = m ? m.unit : '';
+          const popup = `<b>${r.location}</b><br>${m ? `${m.parameter}: ${value} ${unit}` : 'Sin medición reciente'}<br>Fuente: OpenAQ`;
+
+          const color = value === null ? '#999' : (value > 50 ? '#d73027' : '#1a9850');
+          const radius = value === null ? 6 : Math.min(18, Math.max(6, Math.round(value / 3)));
+
+          L.circleMarker([coord.latitude, coord.longitude], { radius, fillColor: color, color: '#fff', weight: 1, fillOpacity: 0.9 })
+            .bindPopup(popup).addTo(layer);
+        });
+
+        layer.addTo(map);
+        return layer;
+      } catch (err) {
+        console.warn('Error cargando OpenAQ:', err);
+        return null;
+      }
+    }
+
+    /***** 2) Open-Meteo: temperatura actual *****/
+    async function actualizarTemperaturaReal() {
+      const base = 'https://api.open-meteo.com/v1/forecast';
+      const params = new URLSearchParams({ latitude: CAJAMARCA_COORDS[0], longitude: CAJAMARCA_COORDS[1], current_weather: true });
+      const url = `${base}?${params.toString()}`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Open-Meteo no disponible');
+        const data = await res.json();
+        const temp = data && data.current_weather ? data.current_weather.temperature : null;
+        if (temp !== null) {
+          const slider = document.getElementById('ai-lst');
+          const display = slider.parentNode.querySelector('.value-display');
+          slider.value = temp;
+          display.textContent = parseFloat(temp).toFixed(1);
+          return temp;
+        }
+      } catch (err) {
+        console.warn('Error Open-Meteo:', err);
+        return null;
+      }
+    }
+
+    /***** 3) NASA GIBS (MODIS NDVI) — WMS tileLayer *****/
+    function agregarNDVIReal() {
+      const map = safeGetMap();
+      if (!map) return null;
+      try {
+        const ndviLayer = L.tileLayer.wms('https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi', {
+          layers: 'MODIS_Terra_NDVI_16Day',
+          format: 'image/png',
+          transparent: true,
+          opacity: 0.6,
+          attribution: 'NASA MODIS NDVI'
+        });
+        ndviLayer.addTo(map);
+        return ndviLayer;
+      } catch (err) {
+        console.warn('No se pudo cargar NDVI WMS:', err);
+        return null;
+      }
+    }
+
+    /***** 4) Overpass (OpenStreetMap): hospitales/centros de salud *****/
+async function cargarCentrosSalud(radiusMeters = 50000) {
+  const map = safeGetMap();
+  if (!map) return null;
+
+  const q = `
+  [out:json][timeout:25];
+  (
+    node["amenity"~"hospital|clinic"](around:${radiusMeters},${CAJAMARCA_COORDS[0]},${CAJAMARCA_COORDS[1]});
+    way["amenity"~"hospital|clinic"](around:${radiusMeters},${CAJAMARCA_COORDS[0]},${CAJAMARCA_COORDS[1]});
+    relation["amenity"~"hospital|clinic"](around:${radiusMeters},${CAJAMARCA_COORDS[0]},${CAJAMARCA_COORDS[1]});
+    node["healthcare"~"hospital|clinic|centre"](around:${radiusMeters},${CAJAMARCA_COORDS[0]},${CAJAMARCA_COORDS[1]});
+    way["healthcare"~"hospital|clinic|centre"](around:${radiusMeters},${CAJAMARCA_COORDS[0]},${CAJAMARCA_COORDS[1]});
+    relation["healthcare"~"hospital|clinic|centre"](around:${radiusMeters},${CAJAMARCA_COORDS[0]},${CAJAMARCA_COORDS[1]});
+    node["building"="hospital"](around:${radiusMeters},${CAJAMARCA_COORDS[0]},${CAJAMARCA_COORDS[1]});
+    way["building"="hospital"](around:${radiusMeters},${CAJAMARCA_COORDS[0]},${CAJAMARCA_COORDS[1]});
+  );
+  out center;
+  `;
+
+  try {
+    const res = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: q
+    });
+    if (!res.ok) throw new Error('Overpass API falló');
+    const data = await res.json();
+
+    const layer = L.layerGroup();
+    data.elements.forEach(e => {
+      const lat = e.lat || (e.center && e.center.lat);
+      const lon = e.lon || (e.center && e.center.lon);
+      if (!lat || !lon) return;
+
+      const nombre =
+        (e.tags && (e.tags.name || e.tags.operator)) || 'Centro de salud';
+      const marker = L.marker([lat, lon], {
+        icon: L.icon({
+          iconUrl: 'img/mark.png',
+          iconSize: [28, 28],
+          iconAnchor: [14, 28]
+        })
+      }).bindPopup(`<b>${nombre}</b><br>Fuente: OpenStreetMap`);
+      layer.addLayer(marker);
+    });
+
+    layer.addTo(map);
+    return layer;
+  } catch (err) {
+    console.warn('Error Overpass:', err);
+    return null;
+  }
+}
+
+
+    /***** 5) Densidad poblacional (fallback simple: WorldPop / placeholder) *****/
+    // Implementar una integración profunda con WorldPop o INEI requiere preprocesamiento.
+    // Aquí dejaremos una llamada que puede apuntar a un geojson procesado si lo subes al servidor.
+    async function cargarDensidadFallback() {
+      // Si tienes un geojson con densidad por polígonos, reemplaza la URL
+      const map = safeGetMap();
+      if (!map) return null;
+      try {
+        // ejemplo: const res = await fetch('/data/densidad_cajamarca.geojson');
+        // const gj = await res.json();
+        // const lg = L.geoJSON(gj, { style: ... }).addTo(map);
+        // return lg;
+        return null; // no hay datos preprocesados en esta versión
+      } catch (err) {
+        console.warn('No hay densidad poblacional preprocesada:', err);
+        return null;
+      }
+    }
+
+    /***** 6) Cálculo de prioridad (igual que antes, pero ahora usando propiedades reales cuando existan) *****/
+    function calcularPrioridad(areaProps) {
+      const wAcceso = 0.30, wContaminacion = 0.25, wEnergia = 0.20, wCalor = 0.25;
+      const accesoScore = 100 - (Number(areaProps.indice_acceso) || 50);
+      const contScore = Math.min(200, Number(areaProps.contaminacion || 50)) / 200 * 100;
+      const energiaScore = 100 - (Number(areaProps.cobertura_energia) || 60);
+      const calorScore = Math.min(40, Number(areaProps.temp || 28)) / 40 * 100;
+      const raw = (accesoScore * wAcceso) + (contScore * wContaminacion) + (energiaScore * wEnergia) + (calorScore * wCalor);
+      return Math.round(Math.min(100, Math.max(0, raw)));
+    }
+
+    /***** 7) Manejo de clicks en el mapa (ahora intentamos consultar Open-Meteo y NDVI aproximado) *****/
+    async function handleMapClick(coords) {
+      const ndvi = await sampleNDVI(coords.lat, coords.lng); // función de muestreo (fallback si no es posible)
+      const lst = await sampleLST(coords.lat, coords.lng);
+      const dens = await sampleDensidad(coords.lat, coords.lng);
+
+      if (clickMarker) mapInstance.removeLayer(clickMarker);
+      clickMarker = L.circleMarker([coords.lat, coords.lng], { radius: 8, fillColor: 'var(--accent)', color: '#ffffff', weight: 2, opacity: 1, fillOpacity: 0.9 }).addTo(mapInstance).bindPopup(`Datos: NDVI ${ndvi?.toFixed(2) || 'N/A'}, LST ${lst?.toFixed(1) || 'N/A'}°C`).openPopup();
+      mapInstance.flyTo([coords.lat, coords.lng], 12, { animate: true, duration: 1 });
+
+      const html = `
+        <p><strong>📍 Coordenadas:</strong> ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}</p>
+        <p><strong>🌿 NDVI (Salud):</strong> <span style="color:${ndvi > 0.4 ? 'green' : 'orange'}; font-weight:700;">${ndvi ? ndvi.toFixed(2) : 'N/A'}</span></p>
+        <p><strong>🔥 LST (°C):</strong> <span style="color:${lst > 30 ? 'red' : 'green'}; font-weight:700;">${lst ? lst.toFixed(1) : 'N/A'}</span></p>
+        <p><strong>👥 Densidad (hab/km²):</strong> <span style="font-weight:700;">${dens ? dens.toLocaleString() : 'N/D'}</span></p>
+      `;
+      document.getElementById('selected-metrics').innerHTML = html;
+
+      const kpiAlto = document.getElementById('kpi-alto');
+      const isHighRisk = (ndvi && ndvi < 0.3) || (lst && lst > 32);
+      kpiAlto.textContent = isHighRisk ? '¡ALTO! ⚠️' : 'Bajo/Medio ✅';
+      kpiAlto.style.color = isHighRisk ? '#ff4500' : 'var(--accent-dark)';
+      document.getElementById('kpi-ndvi').textContent = ndvi ? ndvi.toFixed(2) : '--';
+
+      if (ndvi) {
+        const ndviPercent = ndvi * 100;
+        ndviBar.style.position = 'relative';
+        ndviBar.style.cursor = 'pointer';
+        ndviBar.innerHTML = `<div style="position: absolute; top: -7px; left: ${ndviPercent}%; transform: translateX(-50%); width: 14px; height: 14px; border-radius: 50%; background: white; border: 2px solid var(--accent-dark); box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: left 0.5s ease-out;"></div>`;
+      }
+
+      updateRiskChart(ndvi || 0.5, lst || 26, dens || 500);
+
+      if (window.innerWidth <= 900) sidebar.classList.remove('open');
+    }
+
+    // Muestreos y aproximaciones (NDVI, LST, Densidad)
+    async function sampleNDVI(lat, lon) {
+      // No existe una API sencilla para muestrear MODIS NDVI en un punto sin proxy; devolvemos una aproximación basada en tile WMS (no se descarga el raster aquí).
+      // Para esta versión, devolvemos null y dejamos la capa WMS visible. Puedes implementar un servicio servidor-side para muestreos precisos.
+      return null;
+    }
+
+    async function sampleLST(lat, lon) {
+      // usamos Open-Meteo current_weather como aproximación (esa API no da LST puntual pero da temperatura 2m)
+      try {
+        const base = 'https://api.open-meteo.com/v1/forecast';
+        const params = new URLSearchParams({ latitude: lat, longitude: lon, current_weather: true });
+        const res = await fetch(`${base}?${params.toString()}`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data && data.current_weather ? data.current_weather.temperature : null;
+      } catch (err) { return null; }
+    }
+
+    async function sampleDensidad(lat, lon) {
+      // sin integración directa, devolvemos null. Si subes un GeoJSON con densidades, aquí haríamos un lookup.
+      return null;
+    }
+
+    /* ----------------- Módulo IA: regla ponderada (se mantiene) ----------------- */
+    document.getElementById('ai-predict').addEventListener('click', async () => {
+      const ndvi = parseFloat(document.getElementById('ai-ndvi').value);
+      const lst = parseFloat(document.getElementById('ai-lst').value);
+      const dens = parseFloat(document.getElementById('ai-den').value);
+      const out = document.getElementById('ai-output');
+
+      // Regla ponderada demo (0-1)
+      const risk = Math.min(1, Math.max(0,
+        0.5 * (1 - ndvi) + 0.35 * ((lst - 15) / 30) + 0.15 * (dens / 10000)
+      ));
+      const riskPct = Math.round(risk * 100);
+
+      out.style.display = 'block';
+      out.style.backgroundColor = `rgba(255, ${255 - riskPct * 2.55}, ${255 - riskPct * 2.55}, 0.8)`;
+      out.innerHTML = `<div>Estimación IA: <strong>Riesgo ${riskPct}%</strong> (${riskPct > 60 ? '¡Alta prioridad!' : 'Prioridad baja/media'}).</div>`;
+
+      // recalculamos prioridades globales si existen capas relevantes
+      if (window.calcularYMostrarPrioridadesLeaflet) try { window.calcularYMostrarPrioridadesLeaflet(); } catch (e) { }
+    });
+
+    /* ----------------- Inicialización de capas reales al cargar ----------------- */
+    async function inicializarDatosReales() {
+      // Esperamos a que mapInstance esté listo
+      const waitMap = new Promise(resolve => {
+        const t = setInterval(() => { if (safeGetMap()) { clearInterval(t); resolve(); } }, 200);
+      });
+      await waitMap;
+
+      // Cargamos capas en paralelo (fallos no bloqueantes)
+      const promises = [cargarContaminacionReal(), actualizarTemperaturaReal(), cargarCentrosSalud(), agregarNDVIReal(), cargarDensidadFallback()];
+      const [contLayer, temp, saludLayer, ndviLayer, densLayer] = await Promise.all(promises.map(p => p.catch ? p.catch(e => { console.warn(e); return null; }) : p));
+
+      // Añadir control de capas si mapInstance existe
+      const map = safeGetMap();
+      if (map) {
+        const overlays = {};
+        if (contLayer) overlays['Contaminación (OpenAQ)'] = contLayer;
+        if (saludLayer) overlays['Centros de Salud (OSM)'] = saludLayer;
+        if (ndviLayer) overlays['NDVI (MODIS)'] = ndviLayer;
+        if (densLayer) overlays['Densidad poblacional (preproc)'] = densLayer;
+        if (Object.keys(overlays).length) L.control.layers(null, overlays, { collapsed: false, position: 'topleft' }).addTo(map);
+      }
+
+      // Actualizamos algunos KPIs iniciales
+      if (typeof temp !== 'undefined' && temp !== null) {
+        const display = document.querySelector('#ai-lst + .value-display');
+        if (display) display.textContent = parseFloat(temp).toFixed(1);
+      }
+
+      // Exponer variables globales para depuración
+      window._real_layers = { contLayer, saludLayer, ndviLayer, densLayer };
+
+      console.log('Datos reales inicializados.');
+    }
+
+    // Ejecutar inicialización
+    window.addEventListener('load', () => {
+      inicializarDatosReales();
+    });
+
+    /* ----------------- Funciones de prioridad y visualización 3D (compatibilidad) ----------------- */
+    // Conservamos la función calcularYMostrarPrioridadesLeaflet similar a la versión simulada, pero
+    // adaptada para trabajar si hay GeoJSON con propiedades. En esta versión si no hay datos simulados
+    // la función se limitará a notificar.
+    function calcularYMostrarPrioridadesLeaflet() {
+      const map = safeGetMap();
+      if (!map) return;
+      // Intentamos usar ventana simulatedAreas si existe (compatibilidad retro)
+      const feats = window.simulatedAreas && window.simulatedAreas.features ? window.simulatedAreas.features : [];
+      if (!feats.length) {
+        const out = document.getElementById('ai-output');
+        if (out) { out.style.display = 'block'; out.innerHTML = `<h4>Índice de Prioridad</h4><p>No hay áreas pre-cargadas para calcular prioridad (se requiere GeoJSON con propiedades).</p>`; }
+        return;
+      }
+
+      const results = feats.map(f => ({ id: f.properties.id, nombre: f.properties.nombre, prioridad: calcularPrioridad(f.properties) }));
+      results.sort((a, b) => b.prioridad - a.prioridad);
+
+      const out = document.getElementById('ai-output');
+      if (out) {
+        out.style.display = 'block'; out.style.padding = '8px';
+        out.innerHTML = `<h4>Índice de Prioridad (calculado)</h4><ol>${results.map(r => `<li><strong>${r.nombre}</strong>: ${r.prioridad}%</li>`).join('')}</ol>`;
+      }
+
+      // Cesium extrusions (si existe viewer)
+      const viewer = safeGetCesiumViewer();
+      if (viewer) {
+        // borramos previas
+        const prev = viewer.entities.values.filter(e => e.name && e.name.startsWith('PRIORITY_'));
+        prev.forEach(e => viewer.entities.remove(e));
+        feats.forEach(f => {
+          try {
+            const coords = f.geometry.coordinates[0];
+            const flat = []; coords.forEach(pt => flat.push(pt[0], pt[1]));
+            const prioridad = calcularPrioridad(f.properties);
+            const extrudedHeight = prioridad * 12 + 1000;
+            const color = Cesium.Color.fromHsl((100 - prioridad) / 300, 0.85, 0.45, 0.8);
+            viewer.entities.add({ name: `PRIORITY_${f.properties.id}`, polygon: { hierarchy: Cesium.Cartesian3.fromDegreesArray(flat), extrudedHeight, material: color, outline: true, outlineColor: Cesium.Color.WHITE }, description: `Prioridad: ${prioridad}%` });
+          } catch (err) { console.warn('Error creando extrusión Cesium', err); }
+        });
+      }
+    }
+
+    // Exponer algunas utilidades globales para debugging
+    window.calcularYMostrarPrioridadesLeaflet = calcularYMostrarPrioridadesLeaflet;
+
+    /* ----------------- Mensajes / Fallbacks ----------------- */
+    console.log('JS real cargado. Si falta algún dataset (densidad, NDVI muestreos), considera preprocesar y subir un GeoJSON al servidor y actualizar las funciones de carga.');
+  
     })();
   </script>
   <!-- ------------------ FIN: Simulaciones y capas adicionales ------------------ -->
