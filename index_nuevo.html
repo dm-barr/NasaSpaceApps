@@ -599,30 +599,59 @@
     }
 
     /***** 4) Overpass (OpenStreetMap): hospitales/centros de salud *****/
-    async function cargarCentrosSalud(radiusMeters = 50000) {
-      const map = safeGetMap();
-      if (!map) return null;
-      const q = `[out:json];(node["amenity"="hospital"](around:${radiusMeters},${CAJAMARCA_COORDS[0]},${CAJAMARCA_COORDS[1]});node["amenity"="clinic"](around:${radiusMeters},${CAJAMARCA_COORDS[0]},${CAJAMARCA_COORDS[1]}););out;`;
-      try {
-        const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: q });
-        if (!res.ok) throw new Error('Overpass API falló');
-        const data = await res.json();
-        const layer = L.layerGroup();
-        data.elements.forEach(e => {
-          if (!e.lat || !e.lon) return;
-          const nombre = (e.tags && (e.tags.name || e.tags.operator)) || 'Centro de salud';
-          const marker = L.marker([e.lat, e.lon], {
-            icon: L.icon({ iconUrl: 'img/mark.png', iconSize: [28, 28], iconAnchor: [14, 28] })
-          }).bindPopup(`<b>${nombre}</b><br>Fuente: OpenStreetMap`);
-          layer.addLayer(marker);
-        });
-        layer.addTo(map);
-        return layer;
-      } catch (err) {
-        console.warn('Error Overpass:', err);
-        return null;
-      }
-    }
+async function cargarCentrosSalud(radiusMeters = 50000) {
+  const map = safeGetMap();
+  if (!map) return null;
+
+  const q = `
+  [out:json][timeout:25];
+  (
+    node["amenity"~"hospital|clinic"](around:${radiusMeters},${CAJAMARCA_COORDS[0]},${CAJAMARCA_COORDS[1]});
+    way["amenity"~"hospital|clinic"](around:${radiusMeters},${CAJAMARCA_COORDS[0]},${CAJAMARCA_COORDS[1]});
+    relation["amenity"~"hospital|clinic"](around:${radiusMeters},${CAJAMARCA_COORDS[0]},${CAJAMARCA_COORDS[1]});
+    node["healthcare"~"hospital|clinic|centre"](around:${radiusMeters},${CAJAMARCA_COORDS[0]},${CAJAMARCA_COORDS[1]});
+    way["healthcare"~"hospital|clinic|centre"](around:${radiusMeters},${CAJAMARCA_COORDS[0]},${CAJAMARCA_COORDS[1]});
+    relation["healthcare"~"hospital|clinic|centre"](around:${radiusMeters},${CAJAMARCA_COORDS[0]},${CAJAMARCA_COORDS[1]});
+    node["building"="hospital"](around:${radiusMeters},${CAJAMARCA_COORDS[0]},${CAJAMARCA_COORDS[1]});
+    way["building"="hospital"](around:${radiusMeters},${CAJAMARCA_COORDS[0]},${CAJAMARCA_COORDS[1]});
+  );
+  out center;
+  `;
+
+  try {
+    const res = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: q
+    });
+    if (!res.ok) throw new Error('Overpass API falló');
+    const data = await res.json();
+
+    const layer = L.layerGroup();
+    data.elements.forEach(e => {
+      const lat = e.lat || (e.center && e.center.lat);
+      const lon = e.lon || (e.center && e.center.lon);
+      if (!lat || !lon) return;
+
+      const nombre =
+        (e.tags && (e.tags.name || e.tags.operator)) || 'Centro de salud';
+      const marker = L.marker([lat, lon], {
+        icon: L.icon({
+          iconUrl: 'img/mark.png',
+          iconSize: [28, 28],
+          iconAnchor: [14, 28]
+        })
+      }).bindPopup(`<b>${nombre}</b><br>Fuente: OpenStreetMap`);
+      layer.addLayer(marker);
+    });
+
+    layer.addTo(map);
+    return layer;
+  } catch (err) {
+    console.warn('Error Overpass:', err);
+    return null;
+  }
+}
+
 
     /***** 5) Densidad poblacional (fallback simple: WorldPop / placeholder) *****/
     // Implementar una integración profunda con WorldPop o INEI requiere preprocesamiento.

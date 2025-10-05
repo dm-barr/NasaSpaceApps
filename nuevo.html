@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+     
+    <meta charset="utf-8" />
+     
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+      <title>Cajamarca Sostenible: Observatorio de Riesgos Urbanos (Leaflet/Cesium REAL)</title>
+     
+       
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+     
+         
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.118.0/Build/Cesium/Widgets/widgets.css">
+
+      <style>
+        /* ----------------------------------------------------------- */
+        /* ---------------------- 🎨 ESTILOS CSS 🎨 ---------------------- */
+        /* ----------------------------------------------------------- */
+        :root {
+            --sidebar-width: 360px;
+            --accent: #00695c;
+            /* Verde esmeralda */
+            --accent-dark: #004d40;
+            --muted: #6b6b6b;
+            --bg: #f7f9f8;
+            --card-bg: #ffffff;
+            --radius: 10px;
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            font-family: Inter, "Segoe UI", Arial, sans-serif;
+            background: var(--bg);
+            color: #222
+        }
+
+        a {
+            color: inherit
+        }
+
+        /* ------------- Layout principal --------------- */
+        #app {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        /* Contenedor principal del mapa */
+        #map-container {
+            flex: 1;
+            position: relative;
+            height: 100vh;
+            min-width: 0;
+        }
+
+        /* Contenedores de mapa */
+        #leaflet-map,
+        #cesium-globe {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transition: opacity 0.5s ease;
+        }
+
+        /* Asegura que Cesium tenga el fondo negro por defecto */
+        #cesium-globe {
+            background: #000;
+            display: none;
+            /* Oculto por defecto */
+        }
+
+        /* Sidebar */
+        #sidebar {
+            width: var(--sidebar-width);
+            background: var(--card-bg);
+            padding: 20px;
+            box-shadow: -10px 0 30px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow .3s;
+            z-index: 900;
+        }
+
+        /* Plegado de sidebar en móvil */
+        #sidebar.collapsed {
+            transform: translateX(100%);
+            box-shadow: none;
+        }
+
+        /* Header dentro del sidebar */
+        #sidebar header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        #sidebar h2 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: var(--accent-dark);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Estilo para botones de control */
+        #mapmode-btn,
+        #menu-toggle,
+        #close-sidebar {
+            background: var(--card-bg);
+            border: 1px solid #e6e6e6;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        #mapmode-btn:hover,
+        #menu-toggle:hover,
+        #close-sidebar:hover {
+            background: var(--bg);
+            border-color: var(--accent);
+            color: var(--accent-dark);
+        }
+
+        #menu-toggle {
+            display: none;
+        }
+
+        /* Controles flotantes (Botón 3D y Menú móvil) */
+        #map-controls {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 1000;
+            display: flex;
+            gap: 8px;
+        }
+
+        #map-controls.mobile-left {
+            right: auto;
+            left: 12px;
+        }
+
+        #mapmode-btn {
+            margin-top: 0;
+        }
+
+        /* KPI cards - Más vibrantes */
+        #kpi-cards {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+            margin-bottom: 10px;
+        }
+
+        .kpi-card {
+            background: var(--card-bg);
+            flex: 1;
+            padding: 14px;
+            border-radius: var(--radius);
+            border-left: 5px solid var(--accent);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transition: transform 0.3s ease;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .kpi-card h4 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--accent)
+        }
+
+        .kpi-card p {
+            margin: 6px 0 0 0;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #333;
+            transition: color 0.3s ease;
+        }
+
+        /* CSS para el mensaje de modo 3D */
+        .mode-3d-message {
+            background: #fef0f0;
+            color: #d32f2f;
+            border-left: 4px solid #d32f2f;
+            padding: 10px;
+            margin-top: 15px;
+            border-radius: 4px;
+        }
+
+        /* Estilos responsive */
+        @media (max-width: 900px) {
+            #sidebar {
+                position: absolute;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                transform: translateX(100%);
+                width: 90%;
+                max-width: 400px;
+                padding: 15px;
+            }
+
+            #sidebar.open {
+                transform: translateX(0);
+            }
+
+            #kpi-cards {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+   
+    <div id="app">
+        <div id="map-container" aria-label="Contenedor del mapa">
+           
+                  <div id="leaflet-map"></div>
+           
+                        <div id="cesium-globe"></div>
+
+                  <div id="map-controls">
+                <button id="mapmode-btn" title="Cambiar a vista 3D"> 🌍 Cambiar a 3D </button>
+                <button id="menu-toggle"> ☰ Menú </button>
+              </div>
+          </div>
+
+        <aside id="sidebar" aria-label="Panel lateral">
+      <header>
+        <h2>🗺️ Observatorio de Riesgos — Cajamarca</h2>
+        <div style="margin-left:auto; display:flex; gap: 8px;">
+          <button id="close-sidebar" title="Cerrar panel" style="display:none">✕</button>
+        </div>
+      </header>
+
+      <!-- KPI CARDS -->
+      <div id="kpi-cards">
+        <div class="kpi-card">
+          <h4>Área de Alto Riesgo</h4>
+          <p id="kpi-alto">--</p>
+        </div>
+        <div class="kpi-card">
+          <h4>Vegetación Crítica (NDVI)</h4>
+          <p id="kpi-ndvi">--</p>
+          <div id="ndvi-bar" style="height: 5px; background: linear-gradient(to right, #f44336, #ffeb3b, #4caf50);
+               border-radius: 2px; margin-top: 5px;">
+          </div>
+        </div>
+      </div>
+
+      <!-- ALERTA DE MODO 3D -->
+      <div id="mode-alert" class="mode-3d-message" style="display: none;">
+        🚨 <strong>MODO 3D ACTIVO:</strong> Las interacciones de datos (clics, capas)
+        se gestionan en Cesium. El panel lateral está en modo de visualización.
+      </div>
+
+      <!-- MÓDULO IA -->
+      <section class="chart-container">
+        <div class="module-header">
+          <h4>🤖 Predicción de Riesgo (IA)</h4>
+        </div>
+
+        <div id="ai-module">
+          <label>Modo:
+            <select id="ai-mode">
+              <option value="light">Ligero (regla ponderada)</option>
+              <option value="tfjs" disabled>Entrenable (TensorFlow.js - REQUIERE LIB.)</option>
+            </select>
+          </label>
+
+          <label class="range-label-wrap">NDVI:
+            <input id="ai-ndvi" type="range" min="0" max="1" step="0.01" value="0.5">
+            <span class="value-display">0.50</span>
+          </label>
+
+          <label class="range-label-wrap">LST (°C):
+            <input id="ai-lst" type="range" min="15" max="45" step="0.1" value="26">
+            <span class="value-display">26.0</span>
+          </label>
+
+          <label class="range-label-wrap">Densidad (hab/km²):
+            <input id="ai-den" type="range" min="0" max="10000" step="1" value="500">
+            <span class="value-display">500</span>
+          </label>
+
+          <button id="ai-predict">🚀 Calcular Predicción</button>
+          <div id="ai-output" style="display:none;"></div>
+
+          <div id="ai-train-area" style="display:none;margin-top:10px;">
+            <p style="margin:0 0 8px 0">
+              Entrenamiento local (demo) — genera un modelo simple con datos sintéticos.
+            </p>
+            <button id="ai-train">⚙️ Entrenar modelo (demo)</button>
+            <div id="ai-train-output" style="margin-top:8px"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DATASETS -->
+      <section class="chart-container">
+        <h4>📚 Datasets disponibles (WRI)</h4>
+        <div id="wri-info">Datos listos para ser usados en análisis geoespacial.</div>
+        <div id="wri-datasets">
+          <ul id="dataset-list" style="padding-left:20px; margin-top:10px;">
+            <li><strong>Emisiones_CO2_2020</strong> (WRI demo) - Contaminación</li>
+            <li><strong>Cobertura_bosque_2019</strong> (WRI demo) - Resiliencia</li>
+            <li><strong>Riesgo_inundacion_zonas</strong> (WRI demo) - Vulnerabilidad</li>
+          </ul>
+        </div>
+      </section>
+
+      <hr style="margin:16px 0;border:none;border-top:1px solid #eee">
+
+      <!-- DETALLE DE ÁREA SELECCIONADA -->
+      <section id="area-info">
+        <h3>Detalle del Área Seleccionada (Clic en el Mapa)</h3>
+        <p id="click-instruction" style="color:var(--muted)">
+          Haz clic en el mapa para ver los datos de <strong>LST</strong>, <strong>NDVI</strong> y
+          <strong>Densidad</strong> de esa zona específica.
+        </p>
+        <div id="selected-metrics"></div>
+      </section>
+
+      <!-- GRÁFICO -->
+      <section class="chart-container chart-wrap">
+        <canvas id="riskChart"></canvas>
+      </section>
+    </aside>
+
+       
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+     
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+       
+    <script src="https://cdn.jsdelivr.net/npm/cesium@1.118.0/Build/Cesium/Cesium.js"></script>
+     
+     
+    <script>
+        /* ----------------------------------------------------------- */
+        /* -------------------- 💻 LÓGICA JAVASCRIPT 💻 ------------------- */
+        /* ----------------------------------------------------------- */
+
+        // Variables de control
+        const sidebar = document.getElementById('sidebar');
+        const menuToggle = document.getElementById('menu-toggle');
+        const mapControls = document.getElementById('map-controls');
+        const closeSidebarBtn = document.getElementById('close-sidebar');
+        const mapmodeBtn = document.getElementById('mapmode-btn');
+        const leafletMapDiv = document.getElementById('leaflet-map');
+        const cesiumGlobeDiv = document.getElementById('cesium-globe');
+        const modeAlert = document.getElementById('mode-alert');
+        const clickInstruction = document.getElementById('click-instruction');
+        const ndviBar = document.getElementById('ndvi-bar');
+
+        // Estado global
+        let is3DMode = false;
+        let mapInstance = null; // Leaflet instance
+        let cesiumViewer = null; // Cesium Viewer instance
+        let clickMarker = null;
+
+        // Coordenadas de Cajamarca
+        const CAJAMARCA_COORDS = [-7.1667, -78.5]; // Lat, Lng
+
+        /* ----------------- UI: sidebar toggle (responsive) ----------------- */
+        function updateResponsiveUI() {
+            const w = window.innerWidth;
+            if (w <= 900) {
+                mapControls.classList.add('mobile-left');
+                menuToggle.style.display = 'inline-flex';
+                closeSidebarBtn.style.display = 'inline-block';
+                sidebar.classList.add('collapsed');
+            } else {
+                mapControls.classList.remove('mobile-left');
+                menuToggle.style.display = 'none';
+                closeSidebarBtn.style.display = 'none';
+                sidebar.classList.remove('collapsed');
+                sidebar.classList.remove('open');
+            }
+        }
+        window.addEventListener('resize', updateResponsiveUI);
+        updateResponsiveUI();
+        menuToggle && menuToggle.addEventListener('click', () => sidebar.classList.add('open'));
+        closeSidebarBtn && closeSidebarBtn.addEventListener('click', () => sidebar.classList.remove('open'));
+
+
+        /* ----------------- Map initialization: Leaflet ONLY (2D) ----------------- */
+        function initLeafletMap() {
+            if (mapInstance) mapInstance.remove();
+
+            mapInstance = L.map(leafletMapDiv, { preferCanvas: true }).setView(CAJAMARCA_COORDS, 12);
+
+            // Capa base gratuita de OpenStreetMap (OSM)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(mapInstance);
+
+            // Click handler para Leaflet
+            mapInstance.on('click', function (e) {
+                if (!is3DMode) handleMapClick({ lng: e.latlng.lng, lat: e.latlng.lat });
+            });
+        }
+
+        // Llamada inicial
+        initLeafletMap();
+
+        /* ----------------- Map initialization: CesiumJS (3D) ----------------- */
+        function initCesiumViewer() {
+            // 1. Verificar si ya se inicializó
+            if (cesiumViewer) return;
+
+            // 2. Configurar Cesium token
+            // Cesium requiere un token para algunos servicios (como las imágenes 3D por defecto), aunque el motor es gratuito.
+            // Usamos el token de demostración (funciona, pero se recomienda obtener uno propio en https://cesium.com/ion/tokens).
+            Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyYTliOTViOC1jYmJmLTQzOWItODg0Ny1hNzg0YzJjYTljY2YiLCJpZCI6MTkzNTQ0LCJpYXQiOjE3MDcwNTEzNDl9.X1-wW1_g9R6yN1_X_e7D2Y3pQe2M5J6eW3d0P1v-f78';
+
+            // 3. Inicializar el visor
+            cesiumViewer = new Cesium.Viewer(cesiumGlobeDiv, {
+                animation: false, // Desactivar widget de animación
+                baseLayerPicker: true, // Permitir cambio de capa base (incluye 3D)
+                fullscreenButton: false, // Desactivar botón de pantalla completa
+                geocoder: false, // Desactivar geocodificador
+                homeButton: false, // Desactivar botón de inicio
+                sceneModePicker: false, // Desactivar selector de modo de escena (2D, 3D)
+                timeline: false, // Desactivar línea de tiempo
+                navigationHelpButton: false, // Desactivar botón de ayuda
+                infoBox: false, // Desactivar cuadro de información
+                selectionIndicator: false // Desactivar indicador de selección
+            });
+
+            // 4. Volar a Cajamarca con inclinación para ver 3D
+            cesiumViewer.camera.flyTo({
+                destination: Cesium.Cartesian3.fromDegrees(CAJAMARCA_COORDS[1], CAJAMARCA_COORDS[0], 20000), // Lng, Lat, Altura (20km)
+                orientation: {
+                    heading: Cesium.Math.toRadians(0.0), // Orientación Norte
+                    pitch: Cesium.Math.toRadians(-35.0), // Ángulo de inclinación
+                    roll: 0.0
+                },
+                duration: 1.5 // Duración del vuelo
+            });
+
+            console.log('CesiumJS Viewer inicializado.');
+        }
+
+        /* ----------------- Función principal de toggle de modo de mapa ----------------- */
+        mapmodeBtn.addEventListener('click', toggleMapMode);
+
+        function toggleMapMode() {
+            is3DMode = !is3DMode;
+
+            if (is3DMode) {
+                // Modo 3D (Cesium)
+                initCesiumViewer();
+                leafletMapDiv.style.display = 'none';
+                cesiumGlobeDiv.style.display = 'block';
+                mapmodeBtn.textContent = '📏 Volver a 2D';
+                mapmodeBtn.title = 'Cambiar a vista 2D (Leaflet)';
+                modeAlert.style.display = 'block';
+                clickInstruction.textContent = 'Interacciones de datos deshabilitadas en el modo 3D.';
+
+            } else {
+                // Modo 2D (Leaflet)
+                leafletMapDiv.style.display = 'block';
+                cesiumGlobeDiv.style.display = 'none';
+                mapInstance.invalidateSize(); // Asegura que Leaflet se redimensione correctamente
+                mapmodeBtn.textContent = '🌍 Cambiar a 3D';
+                mapmodeBtn.title = 'Cambiar a vista 3D (CesiumJS)';
+                modeAlert.style.display = 'none';
+                clickInstruction.textContent = 'Haz clic en el mapa para ver los datos de LST, NDVI y Densidad de esa zona específica.';
+            }
+        }
+
+        /* -------------- Manejo de clicks en el mapa (simulación de métricas) -------------- */
+        function handleMapClick(coords) {
+            // Esta función solo se ejecuta si NO estamos en 3D (ver listener en initLeafletMap)
+
+            // 1. Simulación de datos
+            const ndvi = (Math.random() * 0.7 + 0.2).toFixed(2); // Rango 0.2 a 0.9
+            const lst = (18 + Math.random() * 18).toFixed(1); // Rango 18 a 36
+            const dens = Math.round(Math.random() * 6000);
+
+            // 2. Animación del marcador de click (Leaflet)
+            if (clickMarker) mapInstance.removeLayer(clickMarker);
+            clickMarker = L.circleMarker([coords.lat, coords.lng], {
+                radius: 8,
+                fillColor: 'var(--accent)',
+                color: '#ffffff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.9
+            }).addTo(mapInstance).bindPopup(`Datos: NDVI ${ndvi}, LST ${lst}°C`).openPopup();
+            mapInstance.flyTo([coords.lat, coords.lng], 12, { animate: true, duration: 1 });
+
+            // 3. Actualizar panel lateral
+            const html = `
+        <p><strong>📍 Coordenadas:</strong> ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}</p>
+        <p><strong>🌿 NDVI (Salud):</strong> <span style="color:${parseFloat(ndvi) > 0.4 ? 'green' : 'orange'}; font-weight:700;">${ndvi}</span></p>
+        <p><strong>🔥 LST (°C):</strong> <span style="color:${parseFloat(lst) > 30 ? 'red' : 'green'}; font-weight:700;">${lst}</span></p>
+        <p><strong>👥 Densidad (hab/km²):</strong> <span style="font-weight:700;">${dens.toLocaleString()}</span></p>
+      `;
+            document.getElementById('selected-metrics').innerHTML = html;
+
+            // 4. Actualizar KPIs, animar riesgo e indicador visual NDVI
+            const kpiAlto = document.getElementById('kpi-alto');
+            const isHighRisk = (parseFloat(ndvi) < 0.3 || parseFloat(lst) > 32);
+            kpiAlto.textContent = isHighRisk ? '¡ALTO! ⚠️' : 'Bajo/Medio ✅';
+            kpiAlto.style.color = isHighRisk ? '#ff4500' : 'var(--accent-dark)';
+            kpiAlto.classList.toggle('pulsing-kpi', isHighRisk);
+            document.getElementById('kpi-ndvi').textContent = ndvi;
+
+            const ndviPercent = parseFloat(ndvi) * 100;
+            ndviBar.style.position = 'relative';
+            ndviBar.style.cursor = 'pointer';
+            ndviBar.innerHTML = `<div style="position: absolute; top: -7px; left: ${ndviPercent}%; transform: translateX(-50%); width: 14px; height: 14px; border-radius: 50%; background: white; border: 2px solid var(--accent-dark); box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: left 0.5s ease-out;"></div>`;
+
+
+            // 5. Actualizar gráfico de riesgo
+            updateRiskChart(parseFloat(ndvi), parseFloat(lst), dens);
+
+            // 6. Cerrar sidebar si es móvil (mejora UX)
+            if (window.innerWidth <= 900) sidebar.classList.remove('open');
+        }
+
+        /* ----------------- Sincronización de Range Sliders con valores ----------------- */
+        document.querySelectorAll('input[type="range"]').forEach(input => {
+            const displaySpan = input.parentNode.querySelector('.value-display');
+            if (displaySpan) {
+                input.addEventListener('input', () => {
+                    displaySpan.textContent = parseFloat(input.value).toLocaleString(undefined, {
+                        minimumFractionDigits: input.step.split('.')[1]?.length || 0,
+                        maximumFractionDigits: input.step.split('.')[1]?.length || 0
+                    });
+                });
+            }
+        });
+
+        /* ----------------- IA simple (regla ponderada) ----------------- */
+        document.getElementById('ai-predict').addEventListener('click', () => {
+            const ndvi = parseFloat(document.getElementById('ai-ndvi').value);
+            const lst = parseFloat(document.getElementById('ai-lst').value);
+            const dens = parseFloat(document.getElementById('ai-den').value);
+            const out = document.getElementById('ai-output');
+
+            // Regla ponderada demo (0-1)
+            const risk = Math.min(1, Math.max(0,
+                0.5 * (1 - ndvi) + 0.35 * ((lst - 15) / 30) + 0.15 * (dens / 10000)
+            ));
+            const riskPct = Math.round(risk * 100);
+
+            out.style.display = 'block';
+            out.style.backgroundColor = `rgba(255, ${255 - riskPct * 2.55}, ${255 - riskPct * 2.55}, 0.8)`;
+            out.innerHTML = `<div>Estimación IA: <strong>Riesgo ${riskPct}%</strong> (${riskPct > 60 ? '¡Alta prioridad!' : 'Prioridad baja/media'}).</div>`;
+        });
+
+        // Las funciones de Simulación Climática y FIRMS/WRI se han eliminado para simplificar el código en la respuesta final,
+        // ya que el foco es la vista 3D, pero se pueden reintegrar.
+
+        /* ----------------- Gráfico de riesgo (Chart.js) ----------------- */
+        const ctx = document.getElementById('riskChart').getContext('2d');
+        let riskChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['NDVI', 'LST (°C)', 'Densidad (/1000)'],
+                datasets: [{
+                    label: 'Valor normalizado',
+                    data: [0.5 * 35, 26, 0.5 * 5], // Escala inicial
+                    backgroundColor: [
+                        'rgba(75, 192, 192, 0.7)',
+                        'rgba(255, 99, 132, 0.7)',
+                        'rgba(54, 162, 235, 0.7)'
+                    ],
+                    borderColor: 'rgba(255, 255, 255, 1)',
+                    borderWidth: 1,
+                    borderRadius: 8,
+                    hoverBackgroundColor: [
+                        'rgba(75, 192, 192, 0.9)',
+                        'rgba(255, 99, 132, 0.9)',
+                        'rgba(54, 162, 235, 0.9)'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                animation: { duration: 800, easing: 'easeOutQuart' },
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        max: 35,
+                        ticks: { color: '#666' }
+                    },
+                    x: { ticks: { color: '#666' } }
+                }
+            }
+        });
+
+        function updateRiskChart(ndvi, lst, dens) {
+            riskChart.data.datasets[0].data = [ndvi * 35, lst, dens / 1000 * 5];
+            riskChart.update();
+        }
+    </script>
+    <!-- ------------------ INICIO: Simulaciones y capas adicionales ------------------ -->
+    <script>
+        (function () {
+            // --- Seguridad: asegurar que mapa Leaflet exista ---
+            if (typeof mapInstance === 'undefined' || !mapInstance) {
+                console.warn('Simulación: mapInstance no detectado todavía. Esta capa se añadirá cuando el mapa esté listo.');
+                // Esperar a que window.mapInstance exista o que se dispare evento custom (reintentamos más abajo)
+            }
+
+            /**************************************************************************
+             * Utilidades pequeñas
+             **************************************************************************/
+            function safeGetMap() {
+                if (typeof mapInstance !== 'undefined' && mapInstance) return mapInstance;
+                return null;
+            }
+
+            function safeGetCesiumViewer() {
+                if (typeof cesiumViewer !== 'undefined' && cesiumViewer) return cesiumViewer;
+                return null;
+            }
+
+            function createElementFromHTML(htmlString) {
+                const div = document.createElement('div');
+                div.innerHTML = htmlString.trim();
+                return div.firstChild;
+            }
+
+            // Color ramp utility para choropleth
+            function getColorRamped(value, breaks, colors) {
+                for (let i = 0; i < breaks.length; i++) {
+                    if (value <= breaks[i]) return colors[i];
+                }
+                return colors[colors.length - 1];
+            }
+
+            /**************************************************************************
+             * Datos simulados (GeoJSON y arrays). Reemplázalos por tus datos reales.
+             **************************************************************************/
+            // Nota: coordenadas demo centradas en Cajamarca (~lat -7.17, lon -78.5).
+            const simulatedAreas = {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "id": "A",
+                            "nombre": "Sector A - Centro",
+                            "indice_acceso": 76,
+                            "deficiencia": "vivienda",
+                            "contaminacion": 40,
+                            "cobertura_energia": 92,
+                            "temp": 27
+                        },
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[
+                                [-78.52, -7.16],
+                                [-78.49, -7.16],
+                                [-78.49, -7.18],
+                                [-78.52, -7.18],
+                                [-78.52, -7.16]
+                            ]]
+                        }
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "id": "B",
+                            "nombre": "Sector B - Norte",
+                            "indice_acceso": 34,
+                            "deficiencia": "alimentación",
+                            "contaminacion": 120,
+                            "cobertura_energia": 58,
+                            "temp": 33
+                        },
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[
+                                [-78.53, -7.14],
+                                [-78.50, -7.14],
+                                [-78.50, -7.16],
+                                [-78.53, -7.16],
+                                [-78.53, -7.14]
+                            ]]
+                        }
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "id": "C",
+                            "nombre": "Sector C - Periferia Este",
+                            "indice_acceso": 48,
+                            "deficiencia": "transporte",
+                            "contaminacion": 60,
+                            "cobertura_energia": 35,
+                            "temp": 30
+                        },
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[
+                                [-78.46, -7.17],
+                                [-78.43, -7.17],
+                                [-78.43, -7.19],
+                                [-78.46, -7.19],
+                                [-78.46, -7.17]
+                            ]]
+                        }
+                    }
+                ]
+            };
+
+            // Puntos de contaminación simulada (aire / agua)
+            const puntosContaminacionSim = [
+                { nombre: "Zona Industrial Norte", tipo: "Aire", valor: 140, coords: [-78.521, -7.152] },
+                { nombre: "Vertido Río San Pedro", tipo: "Agua", valor: 85, coords: [-78.519, -7.154] },
+                { nombre: "Quema Residual - Sector B", tipo: "Aire", valor: 110, coords: [-78.505, -7.145] }
+            ];
+
+            // Propuestas de centros de salud
+            const propuestasSalud = [
+                { nombre: "Centro Propuesto 1", lat: -7.155, lon: -78.523, cobertura: 12500 },
+                { nombre: "Centro Propuesto 2", lat: -7.159, lon: -78.518, cobertura: 9300 }
+            ];
+
+            // Parques simulados (polígonos)
+            const dataParquesSim = {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": { "nombre": "Parque Central", "area_verde_m2_hab": 12, "deficit": false },
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[
+                                [-78.515, -7.162],
+                                [-78.512, -7.162],
+                                [-78.512, -7.164],
+                                [-78.515, -7.164],
+                                [-78.515, -7.162]
+                            ]]
+                        }
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": { "nombre": "Parque La Esperanza", "area_verde_m2_hab": 1.8, "deficit": true },
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[
+                                [-78.495, -7.170],
+                                [-78.492, -7.170],
+                                [-78.492, -7.172],
+                                [-78.495, -7.172],
+                                [-78.495, -7.170]
+                            ]]
+                        }
+                    }
+                ]
+            };
+
+            // Vertederos ilegales simulados
+            const vertederosSim = [
+                { nombre: "Vertedero 1", lat: -7.153, lon: -78.525, estado: "Activo" },
+                { nombre: "Vertedero 2", lat: -7.158, lon: -78.520, estado: "En proceso de clausura" }
+            ];
+
+            // Cobertura de energia por área (usamos mismos polígonos de simulatedAreas pero podríamos tener GeoJSON separado)
+            // --- FIN datos simulados ---
+
+            /**************************************************************************
+             * Función: índice compuesto de prioridad (puedes ajustar pesos)
+             **************************************************************************/
+            function calcularPrioridad(areaProps) {
+                // pesos (ajustables)
+                const wAcceso = 0.30;          // importa el acceso a servicios
+                const wContaminacion = 0.25;   // exposición a contaminantes
+                const wEnergia = 0.20;         // falta de energía
+                const wCalor = 0.25;           // riesgo térmico
+                // normalizaciones:
+                // - indice_acceso: 0 (peor) - 100 (mejor) -> invertimos
+                const accesoScore = 100 - (Number(areaProps.indice_acceso) || 50); // si falta, 50 por defecto
+                // - contaminacion: suponemos rango 0-200 (ajusta según tus datos)
+                const contScore = Math.min(200, Number(areaProps.contaminacion || 50)) / 200 * 100;
+                // - cobertura_energia: 0 (peor) - 100 (mejor) -> invertimos
+                const energiaScore = 100 - (Number(areaProps.cobertura_energia) || 60);
+                // - temp: normalizamos sobre 40°C máxima esperada (ajusta)
+                const calorScore = Math.min(40, Number(areaProps.temp || 28)) / 40 * 100;
+
+                const raw = (accesoScore * wAcceso) + (contScore * wContaminacion) + (energiaScore * wEnergia) + (calorScore * wCalor);
+                // escala 0-100
+                return Math.round(Math.min(100, Math.max(0, raw)));
+            }
+
+            /**************************************************************************
+             * Leaflet: creación de capas simuladas
+             **************************************************************************/
+            let accesoLayer = null;
+            let contaminacionLayer = null;
+            let saludProposalsLayer = null;
+            let parquesLayer = null;
+            let crecimientoTileLayer = null;
+            let calorLayer = null;
+            let vertederosLayer = null;
+            let energiaLayer = null;
+
+            function buildAccessLayer(geojson) {
+                // Choropleth - índice de acceso (0 - 100)
+                return L.geoJSON(geojson, {
+                    style: feature => {
+                        const v = Number(feature.properties.indice_acceso);
+                        const color = getColorRamped(v, [20, 40, 60, 80], ['#fc8d59', '#fee08b', '#d9ef8b', '#91cf60', '#1a9850']);
+                        return { color: '#ffffff', weight: 1, fillColor: color, fillOpacity: 0.75 };
+                    },
+                    onEachFeature: (feature, layer) => {
+                        layer.bindPopup(`
+          <b>${feature.properties.nombre}</b><br>
+          Índice de acceso: <strong>${feature.properties.indice_acceso}</strong><br>
+          Deficiencia principal: <strong>${feature.properties.deficiencia}</strong><br>
+          Contaminación (sim): ${feature.properties.contaminacion}<br>
+          Cobertura energía: ${feature.properties.cobertura_energia}%
+        `);
+                        layer.on('mouseover', () => layer.setStyle({ weight: 2 }));
+                        layer.on('mouseout', () => layer.setStyle({ weight: 1 }));
+                    }
+                });
+            }
+
+            function buildContaminacionPoints(points) {
+                const lg = L.layerGroup();
+                points.forEach(p => {
+                    const color = p.tipo === 'Aire' ? '#d7191c' : '#2b83ba';
+                    const r = Math.min(18, Math.max(6, p.valor / 10));
+                    const marker = L.circleMarker([p.coords[1], p.coords[0]], {
+                        radius: r,
+                        fillColor: color,
+                        color: '#ffffff',
+                        weight: 1,
+                        fillOpacity: 0.85
+                    }).bindPopup(`<b>${p.nombre}</b><br>Tipo: ${p.tipo}<br>Valor: ${p.valor}<br>Estado: ${p.valor > 100 ? '<strong>Crítico</strong>' : 'Moderado'}`);
+                    lg.addLayer(marker);
+                });
+                return lg;
+            }
+
+            function buildSaludProposalMarkers(proposals) {
+                const lg = L.layerGroup();
+                proposals.forEach(p => {
+                    const marker = L.marker([p.lat, p.lon], {
+                        title: p.nombre,
+                        icon: L.icon({
+                            iconUrl: 'https://cdn.jsdelivr.net/gh/edent/SuperTinyIcons/images/svg/hospital.svg',
+                            iconSize: [28, 28],
+                            iconAnchor: [14, 28]
+                        })
+                    }).bindPopup(`<b>${p.nombre}</b><br>Cobertura estimada: ${p.cobertura.toLocaleString()} hab`);
+                    lg.addLayer(marker);
+                });
+                return lg;
+            }
+
+            function buildParquesLayer(geojson) {
+                return L.geoJSON(geojson, {
+                    style: f => ({
+                        fillColor: f.properties.deficit ? '#f03b20' : '#31a354',
+                        color: '#ffffff',
+                        weight: 0.6,
+                        fillOpacity: 0.65
+                    }),
+                    onEachFeature: (f, l) => {
+                        l.bindPopup(`<b>${f.properties.nombre}</b><br>Área verde (m²/hab): ${f.properties.area_verde_m2_hab}<br>Déficit: ${f.properties.deficit ? 'Sí' : 'No'}`);
+                    }
+                });
+            }
+
+            function buildVertederosMarkers(list) {
+                const lg = L.layerGroup();
+                list.forEach(v => {
+                    const m = L.marker([v.lat, v.lon], {
+                        icon: L.icon({
+                            iconUrl: 'https://cdn.jsdelivr.net/gh/edent/SuperTinyIcons/images/svg/trash.svg',
+                            iconSize: [26, 26],
+                            iconAnchor: [13, 26]
+                        })
+                    }).bindPopup(`<b>${v.nombre}</b><br>Estado: ${v.estado}`);
+                    lg.addLayer(m);
+                });
+                return lg;
+            }
+
+            function buildEnergiaLayer(areasGeojson) {
+                // reutilizamos simulatedAreas para ejemplo
+                return L.geoJSON(areasGeojson, {
+                    style: f => {
+                        const cov = Number(f.properties.cobertura_energia || 60);
+                        const color = getColorRamped(cov, [40, 60, 80], ['#d7191c', '#fdae61', '#a6d96a', '#1a9850']);
+                        return { color: '#fff', weight: 1, fillColor: color, fillOpacity: 0.7 };
+                    },
+                    onEachFeature: (f, l) => {
+                        l.bindPopup(`<b>${f.properties.nombre}</b><br>Cobertura eléctrica: ${f.properties.cobertura_energia}%`);
+                    }
+                });
+            }
+
+            function buildCalorLayer(areasGeojson) {
+                return L.geoJSON(areasGeojson, {
+                    style: f => {
+                        const t = Number(f.properties.temp || 28);
+                        const c = getColorRamped(t, [26, 28, 30, 32], ['#a6d96a', '#fdae61', '#f46d43', '#d73027', '#7f0000']);
+                        return { color: '#fff', weight: 1, fillColor: c, fillOpacity: 0.7 };
+                    },
+                    onEachFeature: (f, l) => {
+                        const prioridad = calcularPrioridad(f.properties);
+                        l.bindPopup(`<b>${f.properties.nombre}</b><br>Temp: ${f.properties.temp}°C<br>Prioridad calculada: ${prioridad}`);
+                    }
+                });
+            }
+
+            /**************************************************************************
+             * Funciones de inicialización de capas (se ejecutan cuando mapInstance existe)
+             **************************************************************************/
+            function initSimulatedLayers() {
+                const map = safeGetMap();
+                if (!map) {
+                    console.warn('initSimulatedLayers: Leaflet map no disponible todavía. Reintentando en 500ms...');
+                    setTimeout(initSimulatedLayers, 500);
+                    return;
+                }
+
+                // Construir capas
+                accesoLayer = buildAccessLayer(simulatedAreas);
+                contaminacionLayer = buildContaminacionPoints(puntosContaminacionSim);
+                saludProposalsLayer = buildSaludProposalMarkers(propuestasSalud);
+                parquesLayer = buildParquesLayer(dataParquesSim);
+                vertederosLayer = buildVertederosMarkers(vertederosSim);
+                energiaLayer = buildEnergiaLayer(simulatedAreas);
+                calorLayer = buildCalorLayer(simulatedAreas);
+
+                // Simulación de "crecimiento urbano" como tiles placeholder (usa URL de tiles si la tienes)
+                crecimientoTileLayer = L.tileLayer('', {
+                    attribution: 'Crecimiento urbano (simulado)'
+                });
+
+                // Añadir por defecto algunas capas
+                accesoLayer.addTo(map);
+                contaminacionLayer.addTo(map);
+                parquesLayer.addTo(map);
+
+                // Panel de control de capas
+                const overlays = {
+                    "Acceso a Servicios (Índice)": accesoLayer,
+                    "Contaminación (puntos)": contaminacionLayer,
+                    "Propuestas - Centros de Salud": saludProposalsLayer,
+                    "Parques (déficit vs suficiente)": parquesLayer,
+                    "Crecimiento urbano (tiles simulados)": crecimientoTileLayer,
+                    "Zonas de riesgo térmico": calorLayer,
+                    "Vertederos ilegales": vertederosLayer,
+                    "Cobertura eléctrica (%)": energiaLayer
+                };
+
+                L.control.layers(null, overlays, { collapsed: false, position: 'topleft' }).addTo(map);
+
+                // Añadir botón personalizado en mapa para "Calcular Prioridad para todas las áreas"
+                const PriorityControl = L.Control.extend({
+                    options: { position: 'topright' },
+                    onAdd: function () {
+                        const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+                        container.style.background = '#fff';
+                        container.style.padding = '4px';
+                        container.style.cursor = 'pointer';
+                        container.title = 'Calcular índice de prioridad para áreas simuladas';
+                        container.innerHTML = '🔎 Priorizar';
+                        L.DomEvent.disableClickPropagation(container);
+                        container.onclick = function () {
+                            calcularYMostrarPrioridadesLeaflet();
+                        };
+                        return container;
+                    }
+                });
+                map.addControl(new PriorityControl());
+            }
+
+            /**************************************************************************
+             * Ejecutar cálculo de prioridades y pintar resultados (Leaflet + Chart + HTML)
+             **************************************************************************/
+            function calcularYMostrarPrioridadesLeaflet() {
+                const map = safeGetMap();
+                if (!map) return;
+
+                // Calcular prioridad para cada polígono en simulatedAreas
+                const features = simulatedAreas.features;
+                const results = features.map(f => {
+                    const p = calcularPrioridad(f.properties);
+                    // Guardamos en properties para persistencia
+                    f.properties.prioridad = p;
+                    return { id: f.properties.id, nombre: f.properties.nombre, prioridad: p };
+                });
+
+                // Ordenar de mayor a menor
+                results.sort((a, b) => b.prioridad - a.prioridad);
+
+                // Mostrar en el panel IA (existente)
+                const out = document.getElementById('ai-output');
+                if (out) {
+                    out.style.display = 'block';
+                    out.style.padding = '8px';
+                    out.innerHTML = `<h4>Índice de Prioridad (simulado)</h4>
+        <ol>
+          ${results.map(r => `<li><strong>${r.nombre}</strong>: ${r.prioridad}%</li>`).join('')}
+        </ol>
+        <small>Este índice es una simulación basada en variables sintéticas. Reemplazar datos por mediciones reales para decisiones operativas.</small>
+      `;
+                }
+
+                // Actualizar estilo de la capa de acceso para reflejar prioridad (borde + popup)
+                if (accesoLayer) {
+                    accesoLayer.eachLayer(layer => {
+                        const props = layer.feature && layer.feature.properties;
+                        if (props && typeof props.prioridad !== 'undefined') {
+                            const edgeColor = props.prioridad > 65 ? '#7f0000' : props.prioridad > 45 ? '#d73027' : '#2b8cbe';
+                            layer.setStyle({ color: edgeColor, weight: 2 });
+                            layer.bindPopup(layer.getPopup().getContent() + `<br><b>Prioridad intervención:</b> ${props.prioridad}%`);
+                        }
+                    });
+                }
+
+                // Crear/actualizar entidades 3D en Cesium si está activo
+                const viewer = safeGetCesiumViewer();
+                if (viewer) {
+                    // remover entidades previas que añadimos con tag 'simulated-priority'
+                    const prev = viewer.entities.values.filter(e => e.name && e.name.startsWith('PRIORITY_'));
+                    prev.forEach(e => viewer.entities.remove(e));
+
+                    // Añadir nuevas extrusiones
+                    simulatedAreas.features.forEach((f, idx) => {
+                        const coords = f.geometry.coordinates[0]; // [ [lon,lat], ... ]
+                        // convertimos a array de long, lat, long, lat...
+                        const flat = [];
+                        coords.forEach(pt => flat.push(pt[0], pt[1]));
+                        const prioridad = f.properties.prioridad || calcularPrioridad(f.properties);
+                        const extrudedHeight = prioridad * 12 + 1000; // escala visual
+                        const color = Cesium.Color.fromHsl((100 - prioridad) / 300, 0.85, 0.45, 0.8);
+                        try {
+                            viewer.entities.add({
+                                name: `PRIORITY_${f.properties.id}`,
+                                polygon: {
+                                    hierarchy: Cesium.Cartesian3.fromDegreesArray(flat),
+                                    extrudedHeight: extrudedHeight,
+                                    material: color,
+                                    outline: true,
+                                    outlineColor: Cesium.Color.WHITE
+                                },
+                                description: `Prioridad: ${prioridad}%`
+                            });
+                        } catch (err) {
+                            console.warn('No se pudo crear entidad Cesium para', f.properties.nombre, err);
+                        }
+                    });
+                }
+
+                // Actualizar gráfico de riskChart si existe (Chart.js)
+                if (typeof riskChart !== 'undefined' && riskChart) {
+                    // Tomamos 3 indicadores promedio para mostrar en gráfico (demostrativo)
+                    const avgNDVI = (features.reduce((acc, f) => acc + (Number(f.properties.indice_acceso) || 50), 0) / features.length) / 100;
+                    const avgLST = (features.reduce((acc, f) => acc + (Number(f.properties.temp) || 28), 0) / features.length);
+                    const avgDens = (features.reduce((acc, f) => acc + (1000 * ((100 - (f.properties.cobertura_energia || 60)) / 100)), 0) / features.length) / 1000;
+                    riskChart.data.labels = ['Acceso normalizado', 'Temp promedio (°C)', 'Déficit energético (norm)'];
+                    riskChart.data.datasets[0].data = [avgNDVI * 35, avgLST, avgDens * 5];
+                    try { riskChart.update(); } catch (e) { console.warn('No se pudo actualizar riskChart', e); }
+                }
+
+                // Centrar mapa en la área con mayor prioridad
+                if (results.length) {
+                    const top = results[0];
+                    const feat = simulatedAreas.features.find(x => x.properties.id === top.id);
+                    if (feat) {
+                        const bounds = L.geoJSON(feat).getBounds();
+                        map.fitBounds(bounds, { maxZoom: 13 });
+                    }
+                }
+            }
+
+            /**************************************************************************
+             * Integración con el módulo IA existente (botones del sidebar)
+             **************************************************************************/
+            function integrateWithSidebar() {
+                // Creamos un bloque pequeño en el sidebar (no modificamos tu HTML original)
+                const sidebarEl = document.getElementById('sidebar');
+                if (!sidebarEl) return;
+
+                // Contenedor
+                const container = document.createElement('div');
+                container.style.marginTop = '12px';
+                container.style.paddingTop = '10px';
+                container.style.borderTop = '1px solid #eee';
+
+                container.innerHTML = `
+      <h4 style="margin:0 0 8px 0;">🛠️ Simulaciones Rápidas</h4>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button id="sim-run-priority" class="map-mode-btn" style="padding:8px;border-radius:8px;border:1px solid #e6e6e6;background:#fff;cursor:pointer;">Calcular Prioridades</button>
+        <button id="sim-show-cesium" class="map-mode-btn" style="padding:8px;border-radius:8px;border:1px solid #e6e6e6;background:#fff;cursor:pointer;">Actualizar 3D (si Cesium)</button>
+        <button id="sim-clear-entities" class="map-mode-btn" style="padding:8px;border-radius:8px;border:1px solid #e6e6e6;background:#fff;cursor:pointer;">Limpiar Simulaciones</button>
+      </div>
+      <div id="sim-status" style="margin-top:8px;color:var(--muted);font-size:0.9rem;">Estado: listo (simulación local)</div>
+    `;
+                sidebarEl.appendChild(container);
+
+                document.getElementById('sim-run-priority').addEventListener('click', calcularYMostrarPrioridadesLeaflet);
+                document.getElementById('sim-show-cesium').addEventListener('click', function () {
+                    const viewer = safeGetCesiumViewer();
+                    if (!viewer) {
+                        alert('Cesium no está inicializado. Cambia a 3D (botón "Cambiar a 3D") para inicializarlo y vuelve a intentar.');
+                        return;
+                    }
+                    // Forzamos recálculo y pintado (ya maneja Cesium internamente)
+                    calcularYMostrarPrioridadesLeaflet();
+                });
+                document.getElementById('sim-clear-entities').addEventListener('click', function () {
+                    const map = safeGetMap();
+                    if (map) {
+                        // Removemos todas las capas que agregamos
+                        [accesoLayer, contaminacionLayer, parquesLayer, saludProposalsLayer, vertederosLayer, energiaLayer, calorLayer].forEach(l => {
+                            try { if (l && map.hasLayer(l)) map.removeLayer(l); } catch (e) { }
+                        });
+                    }
+                    const viewer = safeGetCesiumViewer();
+                    if (viewer) {
+                        const prev = viewer.entities.values.filter(e => e.name && e.name.startsWith('PRIORITY_'));
+                        prev.forEach(e => viewer.entities.remove(e));
+                    }
+                    document.getElementById('sim-status').textContent = 'Estado: simulaciones limpias';
+                });
+            }
+
+            /**************************************************************************
+             * Inicializar todo cuando el mapa esté listo
+             **************************************************************************/
+            function bootWhenReady() {
+                const map = safeGetMap();
+                if (!map) {
+                    // Si mapInstance no existe aún, reintentar
+                    setTimeout(bootWhenReady, 400);
+                    return;
+                }
+                // Sólo inicializar una vez
+                if (window.__sim_layers_initialized) return;
+                window.__sim_layers_initialized = true;
+
+                initSimulatedLayers();
+                integrateWithSidebar();
+
+                // Si el módulo IA existe y hay botón / output en tu UI, lo enlazamos opcionalmente
+                const aiPredictBtn = document.getElementById('ai-predict');
+                if (aiPredictBtn) {
+                    // preservamos comportamiento original y añadimos cálculo de prioridad global como demo
+                    aiPredictBtn.addEventListener('click', function extraOnClick() {
+                        // recalculamos prioridades al usar IA demo
+                        calcularYMostrarPrioridadesLeaflet();
+                    });
+                }
+            }
+
+            // lanzar
+            bootWhenReady();
+
+            // Exponer funciones a window para depuración / uso en consola
+            window.simulatedAreas = simulatedAreas;
+            window.calcularPrioridad = calcularPrioridad;
+            window.calcularYMostrarPrioridadesLeaflet = calcularYMostrarPrioridadesLeaflet;
+
+        })();
+    </script>
+    <!-- ------------------ FIN: Simulaciones y capas adicionales ------------------ -->
+    <script>
+        // ------------------ 1. Incorporación de más Datos y Fuentes Externas ------------------
+
+        // Datos de Calidad del Aire (API de OpenWeather sin API Key)
+        function getAirQualityData(lat, lon) {
+            fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=YOUR_API_KEY`)
+                .then(response => response.json())
+                .then(data => {
+                    const airQuality = data.list[0].components;
+                    console.log('Calidad del aire:', airQuality);
+                    // Actualizar la interfaz de usuario con los datos de calidad del aire
+                });
+        }
+
+        // Clima en Tiempo Real (OpenWeather sin clave API)
+        function getWeatherData(lat, lon) {
+            fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=YOUR_API_KEY`)
+                .then(response => response.json())
+                .then(data => {
+                    const temperature = data.main.temp - 273.15; // Convertir de Kelvin a Celsius
+                    const weather = data.weather[0].description;
+                    console.log(`Clima: ${weather}, Temperatura: ${temperature}°C`);
+                    // Actualizar la interfaz con el clima
+                });
+        }
+
+        // ------------------ 2. Funciones de Análisis Geoespacial Avanzadas ------------------
+
+        // Cálculo de distancia entre dos puntos (en metros)
+        function calculateDistance(latlng1, latlng2) {
+            const distance = mapInstance.distance(latlng1, latlng2);
+            console.log(`Distancia: ${distance} metros`);
+        }
+
+        // Cálculo de área de un polígono (en metros cuadrados)
+        function calculateArea(latlngs) {
+            const area = L.GeometryUtil.geodesicArea(latlngs);
+            console.log(`Área: ${area} metros cuadrados`);
+        }
+
+        // ------------------ 3. Mejoras en la Visualización ------------------
+
+        // Mapas 3D Mejorados y Modelos de Edificaciones
+        Cesium.Ion.defaultAccessToken = 'tu_token_de_acceso';
+        const viewer = new Cesium.Viewer('cesium-globe', {
+            sceneMode: Cesium.SceneMode.COLUMBUS_VIEW,
+            terrainProvider: Cesium.createWorldTerrain()
+        });
+        const buildingLayer = viewer.scene.primitives.add(new Cesium.Cesium3DTileset({
+            url: 'https://tu_modelo_3d_url'
+        }));
+
+        // Visualización de Capas de Tiempo
+        const temporalLayer = L.timeDimension.layer.wms('https://your-wms-server-url', {
+            layers: 'deforestacion_2021',
+            timeField: 'time',
+            format: 'image/png',
+            transparent: true
+        }).addTo(mapInstance);
+
+        // ------------------ 4. Interactividad Mejorada ------------------
+
+        // Filtros Dinámicos en Tiempo Real
+        const ndviSlider = document.getElementById('ai-ndvi');
+        ndviSlider.addEventListener('input', () => {
+            const ndviValue = ndviSlider.value;
+            console.log(`Filtro NDVI: ${ndviValue}`);
+            // Actualiza las capas del mapa en tiempo real
+        });
+
+        // Herramientas de Dibujo (Permitir a los usuarios dibujar polígonos o líneas)
+        const drawnItems = new L.FeatureGroup().addTo(mapInstance);
+        const drawControl = new L.Control.Draw({
+            edit: { featureGroup: drawnItems }
+        });
+        mapInstance.addControl(drawControl);
+        mapInstance.on(L.Draw.Event.CREATED, function (e) {
+            const layer = e.layer;
+            drawnItems.addLayer(layer);
+            calculateArea(layer.getLatLngs());
+        });
+
+        // Geocodificación de Direcciones (Usando Nominatim API de OpenStreetMap)
+        function geocodeAddress(address) {
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${address}`)
+                .then(response => response.json())
+                .then(data => {
+                    const lat = data[0].lat;
+                    const lon = data[0].lon;
+                    mapInstance.setView([lat, lon], 12);
+                });
+        }
+
+        // Mapas de Calor Interactivos (Visualización de concentraciones de ciertos factores)
+        const heatData = [
+            [lat1, lon1, value1],
+            [lat2, lon2, value2],
+            // ...
+        ];
+        const heatLayer = L.heatLayer(heatData, { radius: 25 }).addTo(mapInstance);
+
+        // ------------------ 5. Integración con APIs Externas y Sensores ------------------
+
+        // Datos en Tiempo Real (FIRMS para Incendios Forestales)
+        const firmsUrl = 'https://firms.modaps.eosdis.nasa.gov/api/active_fire/';
+        fetch(firmsUrl)
+            .then(response => response.json())
+            .then(data => {
+                data.forEach(fire => {
+                    L.circle([fire.latitude, fire.longitude], {
+                        radius: 1000,
+                        color: 'red',
+                        fillColor: 'red',
+                        fillOpacity: 0.5
+                    }).addTo(mapInstance);
+                });
+            });
+
+        // Datos IoT en Tiempo Real (Ejemplo básico con un endpoint genérico)
+        function getSensorData() {
+            fetch('https://sensor-api.example.com')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Datos del sensor:', data);
+                    // Actualiza el mapa con los datos en tiempo real
+                });
+        }
+
+        // ------------------ 6. Visualización de KPI's y Dashboards ------------------
+
+        let chartInstance;
+
+        // Comprobar si `ctx` ya ha sido declarado, si no, asignarlo.
+        let chartCtx = document.getElementById('riskChart').getContext('2d');
+
+        // Si no existe el gráfico, crearlo, sino, actualizarlo
+        if (!window.chartInstance) {
+            window.chartInstance = new Chart(chartCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['NDVI', 'LST', 'Densidad'],
+                    datasets: [{
+                        label: 'Nivel de Riesgo',
+                        data: [ndviRisk, lstRisk, densityRisk],
+                        backgroundColor: ['red', 'blue', 'green'],
+                        borderColor: 'black',
+                        borderWidth: 1
+                    }]
+                },
+                options: { responsive: true }
+            });
+        } else {
+            // Si ya existe el chart, actualizamos el chart con nuevos datos
+            window.chartInstance.data.datasets[0].data = [ndviRisk, lstRisk, densityRisk];
+            window.chartInstance.update();
+        }
+
+        // Dashboard de KPIs (Mostrando KPIs como áreas de alto riesgo y vegetación saludable)
+        const kpiDashboard = document.getElementById('kpi-dashboard');
+        kpiDashboard.innerHTML = `
+  <div class="kpi-card">
+    <h4>Riesgo Total</h4>
+    <p>${totalRisk}</p>
+  </div>
+  <div class="kpi-card">
+    <h4>Vegetación Saludable</h4>
+    <p>${healthyVegetation}%</p>
+  </div>
+`;
+    </script>
+
+</body>
+
+</html>
