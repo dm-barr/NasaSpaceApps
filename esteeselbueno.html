@@ -231,37 +231,36 @@
   </style>
 </head>
 
-<body>
-   
-    <div id="app">
-        <div id="map-container" aria-label="Contenedor del mapa">
-           
-                  <div id="leaflet-map"></div>
-           
-                        <div id="cesium-globe"></div>
+<<body>
 
-                  <div id="map-controls">
-                <button id="mapmode-btn" title="Cambiar a vista 3D"> 🌍 Cambiar a 3D </button>
-                <button id="menu-toggle"> ☰ Menú </button>
-              </div>
-          </div>
+  <div id="app">
+    <div id="map-container" aria-label="Map container">
 
-        <aside id="sidebar" aria-label="Panel lateral">
+      <div id="leaflet-map"></div>
+      <div id="cesium-globe"></div>
+
+      <div id="map-controls">
+        <button id="mapmode-btn" title="Switch to 3D view">🌍 Switch to 3D</button>
+        <button id="menu-toggle">☰ Menu</button>
+      </div>
+    </div>
+
+    <aside id="sidebar" aria-label="Sidebar panel">
       <header>
-        <h2>🗺️ Observatorio de Riesgos — Cajamarca</h2>
+        <h2>🗺️ Risk Observatory — Cajamarca</h2>
         <div style="margin-left:auto; display:flex; gap: 8px;">
-          <button id="close-sidebar" title="Cerrar panel" style="display:none">✕</button>
+          <button id="close-sidebar" title="Close panel" style="display:none">✕</button>
         </div>
       </header>
 
       <!-- KPI CARDS -->
       <div id="kpi-cards">
         <div class="kpi-card">
-          <h4>Área de Alto Riesgo</h4>
+          <h4>High-Risk Area</h4>
           <p id="kpi-alto">--</p>
         </div>
         <div class="kpi-card">
-          <h4>Vegetación Crítica (NDVI)</h4>
+          <h4>Critical Vegetation (NDVI)</h4>
           <p id="kpi-ndvi">--</p>
           <div id="ndvi-bar" style="height: 5px; background: linear-gradient(to right, #f44336, #ffeb3b, #4caf50);
                border-radius: 2px; margin-top: 5px;">
@@ -269,23 +268,23 @@
         </div>
       </div>
 
-      <!-- ALERTA DE MODO 3D -->
+      <!-- 3D MODE ALERT -->
       <div id="mode-alert" class="mode-3d-message" style="display: none;">
-        🚨 <strong>MODO 3D ACTIVO:</strong> Las interacciones de datos (clics, capas)
-        se gestionan en Cesium. El panel lateral está en modo de visualización.
+        🚨 <strong>3D MODE ACTIVE:</strong> Data interactions (clicks, layers)
+        are handled in Cesium. The sidebar is in visualization mode.
       </div>
 
-      <!-- MÓDULO IA -->
+      <!-- AI MODULE -->
       <section class="chart-container">
         <div class="module-header">
-          <h4>🤖 Predicción de Riesgo (IA)</h4>
+          <h4>🤖 Risk Prediction (AI)</h4>
         </div>
 
         <div id="ai-module">
-          <label>Modo:
+          <label>Mode:
             <select id="ai-mode">
-              <option value="light">Ligero (regla ponderada)</option>
-              <option value="tfjs" disabled>Entrenable (TensorFlow.js - REQUIERE LIB.)</option>
+              <option value="light">Light (weighted rule)</option>
+              <option value="tfjs" disabled>Trainable (TensorFlow.js - LIBRARY REQUIRED)</option>
             </select>
           </label>
 
@@ -299,19 +298,19 @@
             <span class="value-display">26.0</span>
           </label>
 
-          <label class="range-label-wrap">Densidad (hab/km²):
+          <label class="range-label-wrap">Density (inhab/km²):
             <input id="ai-den" type="range" min="0" max="10000" step="1" value="500">
             <span class="value-display">500</span>
           </label>
 
-          <button id="ai-predict">🚀 Calcular Predicción</button>
+          <button id="ai-predict">🚀 Run Prediction</button>
           <div id="ai-output" style="display:none;"></div>
 
           <div id="ai-train-area" style="display:none;margin-top:10px;">
             <p style="margin:0 0 8px 0">
-              Entrenamiento local (demo) — genera un modelo simple con datos sintéticos.
+              Local training (demo) — generates a simple model with synthetic data.
             </p>
-            <button id="ai-train">⚙️ Entrenar modelo (demo)</button>
+            <button id="ai-train">⚙️ Train Model (demo)</button>
             <div id="ai-train-output" style="margin-top:8px"></div>
           </div>
         </div>
@@ -319,36 +318,37 @@
 
       <!-- DATASETS -->
       <section class="chart-container">
-        <h4>📚 Datasets disponibles (WRI)</h4>
-        <div id="wri-info">Datos listos para ser usados en análisis geoespacial.</div>
+        <h4>📚 Available Datasets (WRI)</h4>
+        <div id="wri-info">Data ready for geospatial analysis.</div>
         <div id="wri-datasets">
           <ul id="dataset-list" style="padding-left:20px; margin-top:10px;">
-            <li><strong>Emisiones_CO2_2020</strong> (WRI demo) - Contaminación</li>
-            <li><strong>Cobertura_bosque_2019</strong> (WRI demo) - Resiliencia</li>
-            <li><strong>Riesgo_inundacion_zonas</strong> (WRI demo) - Vulnerabilidad</li>
+            <li><strong>CO2_Emissions_2020</strong> (WRI demo) - Pollution</li>
+            <li><strong>Forest_Cover_2019</strong> (WRI demo) - Resilience</li>
+            <li><strong>Flood_Risk_Zones</strong> (WRI demo) - Vulnerability</li>
           </ul>
         </div>
       </section>
 
       <hr style="margin:16px 0;border:none;border-top:1px solid #eee">
 
-      <!-- DETALLE DE ÁREA SELECCIONADA -->
+      <!-- SELECTED AREA DETAILS -->
       <section id="area-info">
-        <h3>Detalle del Área Seleccionada (Clic en el Mapa)</h3>
+        <h3>Selected Area Details (Click on the Map)</h3>
         <p id="click-instruction" style="color:var(--muted)">
-          Haz clic en el mapa para ver los datos de <strong>LST</strong>, <strong>NDVI</strong> y
-          <strong>Densidad</strong> de esa zona específica.
+          Click on the map to view <strong>LST</strong>, <strong>NDVI</strong> and
+          <strong>Density</strong> data for that specific area.
         </p>
         <div id="selected-metrics"></div>
       </section>
 
-      <!-- GRÁFICO -->
+      <!-- CHART -->
       <section class="chart-container chart-wrap">
         <canvas id="riskChart"></canvas>
       </section>
     </aside>
 
-      </div>
+  </div>
+
 
      
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -768,42 +768,76 @@
       const dataParquesSim = {
         "type": "FeatureCollection",
         "features": [
+          // Plaza principal / Plaza de Armas (verificada)
           {
             "type": "Feature",
-            "properties": { "nombre": "Parque Central", "area_verde_m2_hab": 12, "deficit": false },
-            "geometry": {
-              "type": "Polygon",
-              "coordinates": [[
-                [-78.515, -7.162],
-                [-78.512, -7.162],
-                [-78.512, -7.164],
-                [-78.515, -7.164],
-                [-78.515, -7.162]
-              ]]
-            }
+            "properties": { "nombre": "Plaza de Armas", "area_verde_m2_hab": 15, "deficit": false, "source": "OSM/123coordenadas" },
+            "geometry": { "type": "Point", "coordinates": [-78.5174766, -7.1570468] }
           },
-          {
-            "type": "Feature",
-            "properties": { "nombre": "Parque La Esperanza", "area_verde_m2_hab": 1.8, "deficit": true },
-            "geometry": {
-              "type": "Polygon",
-              "coordinates": [[
-                [-78.495, -7.170],
-                [-78.492, -7.170],
-                [-78.492, -7.172],
-                [-78.495, -7.172],
-                [-78.495, -7.170]
-              ]]
-            }
-          }
+
+          // Parques centrales y plazas verificadas
+          { "type": "Feature", "properties": { "nombre": "Parque Las Flores", "source": "Mapcarta/OSM" }, "geometry": { "type": "Point", "coordinates": [-78.519718, -7.153394] } },
+          { "type": "Feature", "properties": { "nombre": "Parque Ecológico", "source": "Mapcarta/OSM" }, "geometry": { "type": "Point", "coordinates": [-78.52064, -7.14769] } },
+          { "type": "Feature", "properties": { "nombre": "Parque El Amauta", "source": "Waze/local listings" }, "geometry": { "type": "Point", "coordinates": [-78.5232273, -7.143912] } },
+          { "type": "Feature", "properties": { "nombre": "Parque Santa Apolonia", "source": "Mapcarta/OSM" }, "geometry": { "type": "Point", "coordinates": [-78.51849, -7.15981] } },
+          { "type": "Feature", "properties": { "nombre": "Plazuela San José", "source": "Mapcarta/OSM" }, "geometry": { "type": "Point", "coordinates": [-78.52056, -7.15278] } },
+          { "type": "Feature", "properties": { "nombre": "Parque Ayacucho (Infantil)", "source": "Gob.pe / noticias locales (geocodificado)" }, "geometry": { "type": "Point", "coordinates": [-78.5120, -7.1608] } },
+
+          // Otros parques muy citados / verificables en directorios y mapas
+          { "type": "Feature", "properties": { "nombre": "Parque La Colmena", "source": "OSM/municipal-list" }, "geometry": { "type": "Point", "coordinates": [-78.50806, -7.157222] } },
+          { "type": "Feature", "properties": { "nombre": "Parque La Merced", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5158, -7.1492] } },
+          { "type": "Feature", "properties": { "nombre": "Parque La Cultura", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5112, -7.1701] } },
+          { "type": "Feature", "properties": { "nombre": "Parque El Estadio", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5075, -7.1635] } },
+          { "type": "Feature", "properties": { "nombre": "Alameda de los Incas", "source": "local tourism / municipal" }, "geometry": { "type": "Point", "coordinates": [-78.5110, -7.1590] } },
+          { "type": "Feature", "properties": { "nombre": "Parque La Esperanza", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.4945, -7.1700] } },
+
+          // Parques y plazuelas documentados en OSM/Mapcarta / directorios locales
+          { "type": "Feature", "properties": { "nombre": "Parque San Francisco", "source": "OSM/Mapcarta" }, "geometry": { "type": "Point", "coordinates": [-78.5165, -7.1625] } },
+          { "type": "Feature", "properties": { "nombre": "Parque San Martín", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5210, -7.1615] } },
+          { "type": "Feature", "properties": { "nombre": "Plazuela La Merced", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5133, -7.1478] } },
+          { "type": "Feature", "properties": { "nombre": "Parque Las Palmeras", "source": "local listings/OSM" }, "geometry": { "type": "Point", "coordinates": [-78.5295, -7.1488] } },
+          { "type": "Feature", "properties": { "nombre": "Parque Mirador / Cerro Santa Apolonia (mirador)", "source": "OSM / Wikiloc" }, "geometry": { "type": "Point", "coordinates": [-78.5180, -7.1598] } },
+
+          // Parques de barrios y plazuelas (geocodificados desde direcciones y mapas)
+          { "type": "Feature", "properties": { "nombre": "Parque Los Pinos", "source": "geocodificado" }, "geometry": { "type": "Point", "coordinates": [-78.5280, -7.1588] } },
+          { "type": "Feature", "properties": { "nombre": "Parque San Pedro", "source": "geocodificado" }, "geometry": { "type": "Point", "coordinates": [-78.5218, -7.1687] } },
+          { "type": "Feature", "properties": { "nombre": "Parque Huamachuco / Plazuela Huamachuco", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5255, -7.1462] } },
+          { "type": "Feature", "properties": { "nombre": "Parque El Bosque", "source": "local listings/OSM" }, "geometry": { "type": "Point", "coordinates": [-78.4878, -7.1586] } },
+          { "type": "Feature", "properties": { "nombre": "Parque La Merced Grande", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5192, -7.1468] } },
+
+          // Más parques citados en directorios municipales y turismo local (geocodificados)
+          { "type": "Feature", "properties": { "nombre": "Parque La Alameda", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5123, -7.1742] } },
+          { "type": "Feature", "properties": { "nombre": "Plazuela San Roque", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5072, -7.1683] } },
+          { "type": "Feature", "properties": { "nombre": "Parque San Sebastián", "source": "municipal-list/estimado" }, "geometry": { "type": "Point", "coordinates": [-78.5060, -7.1483] } },
+          { "type": "Feature", "properties": { "nombre": "Parque San Miguelito", "source": "geocodificado" }, "geometry": { "type": "Point", "coordinates": [-78.4987, -7.1690] } },
+          { "type": "Feature", "properties": { "nombre": "Parque Los Jazmines", "source": "geocodificado" }, "geometry": { "type": "Point", "coordinates": [-78.5265, -7.1512] } },
+          { "type": "Feature", "properties": { "nombre": "Plazuela Ayacucho", "source": "gob.pe (nota local) / geocodificado" }, "geometry": { "type": "Point", "coordinates": [-78.5120, -7.1600] } }
         ]
       };
 
-      // Vertederos ilegales simulados
+
+      // Vertederos simulados
       const vertederosSim = [
-        { nombre: "Vertedero 1", lat: -7.153, lon: -78.525, estado: "Activo" },
-        { nombre: "Vertedero 2", lat: -7.158, lon: -78.520, estado: "En proceso de clausura" }
+        { nombre: "Vertedero Cajamarca - Palturo", lat: -7.1900, lon: -78.4400, estado: "Activo" },
+        { nombre: "Vertedero Jesús Alto", lat: -7.2105, lon: -78.5302, estado: "Activo" },
+        { nombre: "Vertedero Namora Sur", lat: -7.2350, lon: -78.3750, estado: "Propuesto" },
+        { nombre: "Vertedero Cospán Rural", lat: -7.0604, lon: -78.4289, estado: "Propuesto" },
+        { nombre: "Vertedero Cutervo Alto", lat: -6.3205, lon: -78.8602, estado: "Activo" },
+        { nombre: "Vertedero Chota Pampa", lat: -6.5503, lon: -78.6104, estado: "Activo" },
+        { nombre: "Vertedero San Pablo Norte", lat: -7.0508, lon: -78.7901, estado: "En proceso de clausura" },
+        { nombre: "Vertedero San Marcos Andino", lat: -7.3401, lon: -78.2004, estado: "Activo" },
+        { nombre: "Vertedero Contumazá Centro", lat: -7.3807, lon: -78.9405, estado: "Propuesto" },
+        { nombre: "Vertedero Celendín Alto", lat: -6.8302, lon: -78.1604, estado: "Activo" },
+        { nombre: "Vertedero Santa Cruz Rural", lat: -6.7600, lon: -78.9802, estado: "Propuesto" },
+        { nombre: "Vertedero San Miguel Oeste", lat: -6.9805, lon: -78.8303, estado: "Activo" },
+        { nombre: "Vertedero Cajabamba Sur", lat: -7.6802, lon: -78.0703, estado: "En proceso de clausura" },
+        { nombre: "Vertedero Huambos Alto", lat: -6.6502, lon: -78.8205, estado: "Activo" },
+        { nombre: "Vertedero Lajas (Chota)", lat: -6.5301, lon: -78.6306, estado: "Clausurado" },
+        { nombre: "Vertedero San Luis de Lucma", lat: -6.9205, lon: -78.6203, estado: "Propuesto" },
+        { nombre: "Vertedero Namora Norte", lat: -7.1800, lon: -78.3500, estado: "Activo" },
+        { nombre: "Vertedero Sector Alto Pucará", lat: -7.3001, lon: -78.4807, estado: "Clausurado" }
       ];
+
 
       // Cobertura de energia por área (usamos mismos polígonos de simulatedAreas pero podríamos tener GeoJSON separado)
       // --- FIN datos simulados ---
@@ -918,7 +952,7 @@
         list.forEach(v => {
           const m = L.marker([v.lat, v.lon], {
             icon: L.icon({
-              iconUrl: 'https://cdn.jsdelivr.net/gh/edent/SuperTinyIcons/images/svg/trash.svg',
+              iconUrl: 'img/mark.png',
               iconSize: [26, 26],
               iconAnchor: [13, 26]
             })
@@ -988,15 +1022,16 @@
 
         // Panel de control de capas
         const overlays = {
-          "Acceso a Servicios (Índice)": accesoLayer,
-          "Contaminación (puntos)": contaminacionLayer,
-          "Propuestas - Centros de Salud": saludProposalsLayer,
-          "Parques (déficit vs suficiente)": parquesLayer,
-          "Crecimiento urbano (tiles simulados)": crecimientoTileLayer,
-          "Zonas de riesgo térmico": calorLayer,
-          "Vertederos ilegales": vertederosLayer,
-          "Cobertura eléctrica (%)": energiaLayer
+          "Access to Services (Index)": accesoLayer,
+          "Pollution (points)": contaminacionLayer,
+          "Proposals - Health Centers": saludProposalsLayer,
+          "Parks (deficit vs sufficient)": parquesLayer,
+          "Urban Growth (simulated tiles)": crecimientoTileLayer,
+          "Thermal Risk Zones": calorLayer,
+          "Proposals - Landfills": vertederosLayer,
+          "Electric Coverage (%)": energiaLayer
         };
+
 
         L.control.layers(null, overlays, { collapsed: false, position: 'topleft' }).addTo(map);
 
@@ -1133,16 +1168,6 @@
         container.style.marginTop = '12px';
         container.style.paddingTop = '10px';
         container.style.borderTop = '1px solid #eee';
-
-        container.innerHTML = `
-      <h4 style="margin:0 0 8px 0;">🛠️ Simulaciones Rápidas</h4>
-      <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <button id="sim-run-priority" class="map-mode-btn" style="padding:8px;border-radius:8px;border:1px solid #e6e6e6;background:#fff;cursor:pointer;">Calcular Prioridades</button>
-        <button id="sim-show-cesium" class="map-mode-btn" style="padding:8px;border-radius:8px;border:1px solid #e6e6e6;background:#fff;cursor:pointer;">Actualizar 3D (si Cesium)</button>
-        <button id="sim-clear-entities" class="map-mode-btn" style="padding:8px;border-radius:8px;border:1px solid #e6e6e6;background:#fff;cursor:pointer;">Limpiar Simulaciones</button>
-      </div>
-      <div id="sim-status" style="margin-top:8px;color:var(--muted);font-size:0.9rem;">Estado: listo (simulación local)</div>
-    `;
         sidebarEl.appendChild(container);
 
         document.getElementById('sim-run-priority').addEventListener('click', calcularYMostrarPrioridadesLeaflet);
@@ -1333,7 +1358,7 @@
               (e.tags && (e.tags.name || e.tags.operator)) || 'Centro de salud';
             const marker = L.marker([lat, lon], {
               icon: L.icon({
-                iconUrl: 'img/mark.png',
+                iconUrl: 'img/markyellow.png',
                 iconSize: [28, 28],
                 iconAnchor: [14, 28]
               })
@@ -1554,6 +1579,6 @@
   </script>
   <!-- ------------------ FIN: Simulaciones y capas adicionales ------------------ -->
 
-</body>
+  </body>
 
 </html>
