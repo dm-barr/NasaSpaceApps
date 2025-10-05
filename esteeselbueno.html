@@ -1058,11 +1058,69 @@
       };
 
       // Puntos de contaminación simulada (aire / agua)
-      const puntosContaminacionSim = [
-        { nombre: "Zona Industrial Norte", tipo: "Aire", valor: 140, coords: [-78.521, -7.152] },
-        { nombre: "Vertido Río San Pedro", tipo: "Agua", valor: 85, coords: [-78.519, -7.154] },
-        { nombre: "Quema Residual - Sector B", tipo: "Aire", valor: 110, coords: [-78.505, -7.145] }
-      ];
+const puntosContaminacionSim = [
+  // ======== ZONA URBANA DE CAJAMARCA ========
+  { nombre: "Zona Industrial Norte", tipo: "Aire", valor: 145, coords: [-78.521, -7.152] },
+  { nombre: "Vertido Río San Pedro", tipo: "Agua", valor: 88, coords: [-78.519, -7.154] },
+  { nombre: "Quema Residual - Sector B", tipo: "Aire", valor: 112, coords: [-78.505, -7.145] },
+  { nombre: "Av. Hoyos Rubio - Tráfico", tipo: "Aire", valor: 98, coords: [-78.501, -7.163] },
+  { nombre: "Mercado Central de Cajamarca", tipo: "Aire", valor: 82, coords: [-78.519, -7.162] },
+  { nombre: "Descarga Río Mashcón", tipo: "Agua", valor: 75, coords: [-78.530, -7.175] },
+  { nombre: "Depósito de Residuos Atahualpa", tipo: "Suelo", valor: 132, coords: [-78.535, -7.182] },
+  { nombre: "Cantera Santa Apolonia", tipo: "Suelo", valor: 95, coords: [-78.520, -7.169] },
+  { nombre: "Parque Industrial Oeste", tipo: "Aire", valor: 150, coords: [-78.558, -7.150] },
+  { nombre: "Terminal Terrestre Cajamarca", tipo: "Aire", valor: 105, coords: [-78.530, -7.166] },
+  { nombre: "Quebrada San Lucas", tipo: "Agua", valor: 68, coords: [-78.512, -7.180] },
+
+  // ======== BAÑOS DEL INCA Y ALREDEDORES ========
+  { nombre: "Baños del Inca - Aguas Termales", tipo: "Agua", valor: 50, coords: [-78.470, -7.160] },
+  { nombre: "Talleres Mecánicos Baños del Inca", tipo: "Aire", valor: 108, coords: [-78.460, -7.165] },
+  { nombre: "Zona Agrícola Llacanora", tipo: "Aire", valor: 120, coords: [-78.458, -7.188] },
+  { nombre: "Río Llacanora", tipo: "Agua", valor: 60, coords: [-78.455, -7.190] },
+  { nombre: "Relleno Sanitario La Colpa", tipo: "Suelo", valor: 165, coords: [-78.545, -7.200] },
+
+  // ======== PORCÓN Y ZONAS FORESTALES ========
+  { nombre: "Lecherías Porcón Bajo", tipo: "Agua", valor: 68, coords: [-78.562, -7.122] },
+  { nombre: "Zoológico Granja Porcón", tipo: "Agua", valor: 45, coords: [-78.580, -7.112] },
+  { nombre: "Bosque de Porcón Alto", tipo: "Aire", valor: 40, coords: [-78.600, -7.090] },
+  { nombre: "Camino a Porcón - Polvo Vehicular", tipo: "Aire", valor: 75, coords: [-78.585, -7.100] },
+
+  // ======== NAMORA Y ZONAS RURALES ESTE ========
+  { nombre: "Namora - Centro", tipo: "Aire", valor: 72, coords: [-78.395, -7.170] },
+  { nombre: "Talleres Informales Namora", tipo: "Aire", valor: 128, coords: [-78.390, -7.165] },
+  { nombre: "Laguna Namora", tipo: "Agua", valor: 40, coords: [-78.385, -7.180] },
+  { nombre: "Vertedero Rural - Namora Sur", tipo: "Suelo", valor: 145, coords: [-78.405, -7.195] },
+
+  // ======== LA ENCAÑADA Y MINERÍA ========
+  { nombre: "Mina Simulada La Encañada", tipo: "Aire", valor: 160, coords: [-78.390, -7.170] },
+  { nombre: "Descarga Industrial - Encañada", tipo: "Agua", valor: 92, coords: [-78.395, -7.165] },
+  { nombre: "Residuos Mineros - Ladera Norte", tipo: "Suelo", valor: 180, coords: [-78.382, -7.160] },
+  { nombre: "Río Grande - Encañada", tipo: "Agua", valor: 70, coords: [-78.400, -7.155] },
+
+  // ======== CHETILLA Y OESTE ========
+  { nombre: "Chetilla - Zona de Cultivos", tipo: "Aire", valor: 65, coords: [-78.590, -7.190] },
+  { nombre: "Río Chonta", tipo: "Agua", valor: 80, coords: [-78.575, -7.180] },
+  { nombre: "Residuos Orgánicos Chetilla", tipo: "Suelo", valor: 120, coords: [-78.580, -7.185] },
+
+  // ======== JESÚS Y MAGDALENA ========
+  { nombre: "Jesús - Centro Urbano", tipo: "Aire", valor: 70, coords: [-78.675, -7.180] },
+  { nombre: "Laguna San Nicolás (Magdalena)", tipo: "Agua", valor: 35, coords: [-78.530, -7.230] },
+  { nombre: "Río Jequetepeque Alto", tipo: "Agua", valor: 58, coords: [-78.690, -7.190] },
+  { nombre: "Camal Municipal Jesús", tipo: "Suelo", valor: 100, coords: [-78.682, -7.185] },
+
+  // ======== MATARA, ASUNCIÓN Y SUR ========
+  { nombre: "Matara - Producción Agrícola", tipo: "Agua", valor: 62, coords: [-78.495, -7.235] },
+  { nombre: "Vertedero Informal Sur", tipo: "Suelo", valor: 145, coords: [-78.470, -7.190] },
+  { nombre: "Asunción - Quema de Cultivos", tipo: "Aire", valor: 110, coords: [-78.530, -7.255] },
+  { nombre: "Carretera Cajamarca–Asunción", tipo: "Aire", valor: 85, coords: [-78.495, -7.220] },
+
+  // ======== ZONAS LIMPIAS Y DE RESERVA ========
+  { nombre: "Reserva Ecológica El Cumbe", tipo: "Aire", valor: 38, coords: [-78.515, -7.210] },
+  { nombre: "Bosque de Collpa Alta", tipo: "Aire", valor: 42, coords: [-78.555, -7.240] },
+  { nombre: "Laguna Cruz Blanca", tipo: "Agua", valor: 30, coords: [-78.510, -7.250] },
+  { nombre: "Parque Natural Cumbe Mayo", tipo: "Aire", valor: 33, coords: [-78.600, -7.220] }
+];
+
 
       // Propuestas de centros de salud
       const propuestasSalud = [
@@ -1349,7 +1407,6 @@
           "Pollution (points)": contaminacionLayer,
           "Proposals - Health Centers": saludProposalsLayer,
           "Parks (deficit vs sufficient)": parquesLayer,
-          "Urban Growth (simulated tiles)": crecimientoTileLayer,
           "Thermal Risk Zones": calorLayer,
           "Proposals - Landfills": vertederosLayer,
           "Electric Coverage (%)": energiaLayer
